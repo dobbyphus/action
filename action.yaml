@@ -1,0 +1,362 @@
+---
+name: dobbyphus agent
+description: >-
+  Reusable GitHub Action that runs AI agents using opencode + oh-my-opencode.
+  Handles setup, agent execution, and teardown in a single action.
+
+branding:
+  icon: terminal
+  color: purple
+
+inputs:
+  bot_name:
+    description: Bot name for labels and mentions
+    required: false
+    default: ai-agent
+
+  anthropic_api_key:
+    description: Anthropic API key
+    required: false
+  openai_api_key:
+    description: OpenAI API key
+    required: false
+  gemini_api_key:
+    description: Google Gemini API key
+    required: false
+
+  anthropic_base_url:
+    description: Custom Anthropic API base URL (for proxies)
+    required: false
+  openai_base_url:
+    description: Custom OpenAI API base URL (for proxies)
+    required: false
+
+  model_preset:
+    description: Model preset (balanced, fast, powerful)
+    required: false
+    default: balanced
+  primary_model:
+    description: Override primary agent model
+    required: false
+  oracle_model:
+    description: Override oracle agent model
+    required: false
+  fast_model:
+    description: Override fast agents model (explore, librarian, etc)
+    required: false
+
+  mode:
+    description: Prompt mode (maps to {prompt_path}/{mode}.md)
+    required: false
+    default: agent
+  prompt:
+    description: Direct prompt (alternative to mode)
+    required: false
+  prompt_path:
+    description: Path to prompts directory
+    required: false
+    default: .github/prompts
+  prompt_vars:
+    description: JSON object of variables for template substitution
+    required: false
+
+  github_token:
+    description: GitHub token for API access
+    required: false
+    default: ${{ github.token }}
+
+  opencode_version:
+    description: OpenCode version to install
+    required: false
+    default: latest
+  oh_my_opencode_version:
+    description: oh-my-opencode version to install
+    required: false
+    default: latest
+
+  config_json:
+    description: Full opencode.json content (advanced, overrides all config)
+    required: false
+  omo_config_json:
+    description: Full oh-my-opencode.json content (advanced, overrides presets)
+    required: false
+  auth_json:
+    description: Full auth.json content (advanced, overrides API keys)
+    required: false
+
+runs:
+  using: composite
+
+  steps:
+    # === SETUP ===
+    - name: Collect context
+      id: context
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+      run: |
+        EVENT="${{ github.event_name }}"
+
+        if [[ "$EVENT" == "workflow_dispatch" ]]; then
+          NUM="${{ github.event.inputs.issue_number }}"
+          AUTHOR="${{ github.actor }}"
+          COMMENT_ID=""
+          CONTEXT_TYPE="dispatch"
+          COMMENT='${{ github.event.inputs.prompt }}'
+          PR_TITLE=""
+          PR_AUTHOR=""
+
+        elif [[ "$EVENT" == "pull_request" ]]; then
+          NUM="${{ github.event.pull_request.number }}"
+          AUTHOR="${{ github.event.sender.login }}"
+          COMMENT_ID=""
+          CONTEXT_TYPE="pr_opened"
+          COMMENT=""
+          PR_TITLE='${{ github.event.pull_request.title }}'
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+
+        elif [[ "$EVENT" == "pull_request_review" ]]; then
+          NUM="${{ github.event.pull_request.number }}"
+          AUTHOR="${{ github.event.review.user.login }}"
+          COMMENT_ID=""
+          CONTEXT_TYPE="pr_review_request"
+          COMMENT='${{ github.event.review.body }}'
+          PR_TITLE='${{ github.event.pull_request.title }}'
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+
+        else
+          NUM="${{ github.event.issue.number }}"
+          AUTHOR="${{ github.event.comment.user.login }}"
+          COMMENT_ID="${{ github.event.comment.id }}"
+          COMMENT='${{ github.event.comment.body }}'
+          PR_TITLE=""
+          PR_AUTHOR=""
+
+          PR_URL='${{ github.event.issue.pull_request.url }}'
+          if [[ -n "$PR_URL" ]]; then
+            CONTEXT_TYPE="pr_comment"
+          else
+            CONTEXT_TYPE="issue_comment"
+          fi
+        fi
+
+        echo "number=$NUM" >> "$GITHUB_OUTPUT"
+        echo "author=$AUTHOR" >> "$GITHUB_OUTPUT"
+        echo "comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+        echo "context_type=$CONTEXT_TYPE" >> "$GITHUB_OUTPUT"
+        echo "pr_title=$PR_TITLE" >> "$GITHUB_OUTPUT"
+        echo "pr_author=$PR_AUTHOR" >> "$GITHUB_OUTPUT"
+
+        EOF_MARKER=$(openssl rand -hex 16)
+        echo "comment<<$EOF_MARKER" >> "$GITHUB_OUTPUT"
+        echo "$COMMENT" >> "$GITHUB_OUTPUT"
+        echo "$EOF_MARKER" >> "$GITHUB_OUTPUT"
+
+    - name: Build prompt_vars
+      id: vars
+      shell: bash
+      run: |
+        JSON=$(jq -n \
+          --arg author "${{ steps.context.outputs.author }}" \
+          --arg bot_name "${{ inputs.bot_name }}" \
+          --arg comment "${{ steps.context.outputs.comment }}" \
+          --arg context_type "${{ steps.context.outputs.context_type }}" \
+          --arg number "${{ steps.context.outputs.number }}" \
+          --arg repository "${{ github.repository }}" \
+          --arg default_branch "${{ github.event.repository.default_branch }}" \
+          --arg pr_number "${{ steps.context.outputs.number }}" \
+          --arg pr_title "${{ steps.context.outputs.pr_title }}" \
+          --arg pr_author "${{ steps.context.outputs.pr_author }}" \
+          --arg requested_by "${{ steps.context.outputs.author }}" \
+          '{
+            author: $author,
+            bot_name: $bot_name,
+            comment: $comment,
+            context_type: $context_type,
+            number: $number,
+            repository: $repository,
+            default_branch: $default_branch,
+            pr_number: $pr_number,
+            pr_title: $pr_title,
+            pr_author: $pr_author,
+            requested_by: $requested_by
+          }')
+
+        if [[ -n "${{ inputs.prompt_vars }}" ]]; then
+          USER_VARS='${{ inputs.prompt_vars }}'
+          JSON=$(echo "$JSON" | jq --argjson user "$USER_VARS" '. + $user')
+        fi
+
+        EOF_MARKER=$(openssl rand -hex 16)
+        echo "json<<$EOF_MARKER" >> "$GITHUB_OUTPUT"
+        echo "$JSON" >> "$GITHUB_OUTPUT"
+        echo "$EOF_MARKER" >> "$GITHUB_OUTPUT"
+
+    - name: Setup git
+      id: git
+      shell: bash
+      run: |
+        echo "start_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        echo "start_branch=$BRANCH" >> "$GITHUB_OUTPUT"
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Add eyes reaction
+      if: steps.context.outputs.comment_id != ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+      run: |
+        REPO="${{ github.repository }}"
+        COMMENT_ID="${{ steps.context.outputs.comment_id }}"
+        gh api "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
+          -X POST -f content="eyes" || true
+
+    - name: Add working label
+      if: steps.context.outputs.number != ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+      run: |
+        LABEL="${{ inputs.bot_name }}: working"
+        gh label create "$LABEL" \
+          --repo "${{ github.repository }}" \
+          --color "fbca04" \
+          --force || true
+        gh issue edit "${{ steps.context.outputs.number }}" \
+          --add-label "$LABEL" || true
+
+    # === INSTALL & CONFIGURE ===
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+
+    - name: Get versions
+      id: version
+      shell: bash
+      run: ${{ github.action_path }}/scripts/version.sh
+      env:
+        OPENCODE_VERSION: ${{ inputs.opencode_version }}
+        OH_MY_OPENCODE_VERSION: ${{ inputs.oh_my_opencode_version }}
+        GH_TOKEN: ${{ inputs.github_token }}
+
+    - name: Cache opencode
+      uses: actions/cache@v4
+      with:
+        path: ~/.opencode/bin
+        # yamllint disable-line rule:line-length
+        key: opencode-${{ runner.os }}-${{ runner.arch }}-${{ steps.version.outputs.opencode }}
+
+    - name: Cache bun
+      uses: actions/cache@v4
+      with:
+        path: ~/.bun/install/cache
+        # yamllint disable-line rule:line-length
+        key: bun-${{ runner.os }}-${{ runner.arch }}-${{ steps.version.outputs.oh_my_opencode }}
+
+    - name: Install
+      shell: bash
+      run: ${{ github.action_path }}/scripts/install.sh
+      env:
+        OPENCODE_VERSION: ${{ steps.version.outputs.opencode }}
+        OH_MY_OPENCODE_VERSION: ${{ steps.version.outputs.oh_my_opencode }}
+
+    - name: Configure
+      shell: bash
+      run: ${{ github.action_path }}/scripts/configure.sh
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        AUTH_JSON: ${{ inputs.auth_json }}
+        CONFIG_JSON: ${{ inputs.config_json }}
+        OMO_CONFIG_JSON: ${{ inputs.omo_config_json }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
+        ANTHROPIC_BASE_URL: ${{ inputs.anthropic_base_url }}
+        OPENAI_BASE_URL: ${{ inputs.openai_base_url }}
+        MODEL_PRESET: ${{ inputs.model_preset }}
+        PRIMARY_MODEL: ${{ inputs.primary_model }}
+        ORACLE_MODEL: ${{ inputs.oracle_model }}
+        FAST_MODEL: ${{ inputs.fast_model }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+
+    # === RUN AGENT ===
+    - name: Run agent
+      id: agent
+      shell: bash
+      run: |
+        set +e
+        ${{ github.action_path }}/scripts/run.sh
+        EXIT_CODE=$?
+        echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+        exit 0
+      env:
+        MODE: ${{ inputs.mode }}
+        PROMPT_PATH: ${{ inputs.prompt_path }}
+        PROMPT_VARS: ${{ steps.vars.outputs.json }}
+        PROMPT: ${{ inputs.prompt }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+
+    # === TEARDOWN (always runs) ===
+    - name: Replay commits as signed
+      if: always() && steps.agent.outputs.exit_code == '0'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+      run: |
+        python3 "${{ github.action_path }}/scripts/replay_commits.py" \
+          "${{ steps.git.outputs.start_sha }}" \
+          "${{ steps.git.outputs.start_branch }}" \
+          "${{ steps.context.outputs.number }}"
+
+    - name: Post failure comment
+      # yamllint disable-line rule:line-length
+      if: always() && steps.agent.outputs.exit_code != '0' && steps.context.outputs.number != ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+      run: |
+        SERVER="${{ github.server_url }}"
+        REPO="${{ github.repository }}"
+        RUN_ID="${{ github.run_id }}"
+        RUN_URL="$SERVER/$REPO/actions/runs/$RUN_ID"
+        gh issue comment "${{ steps.context.outputs.number }}" \
+          --body "Agent encountered an error. [View logs]($RUN_URL)"
+
+    - name: Update reaction
+      if: always() && steps.context.outputs.comment_id != ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+      run: |
+        REPO="${{ github.repository }}"
+        COMMENT_ID="${{ steps.context.outputs.comment_id }}"
+        ENDPOINT="/repos/$REPO/issues/comments/$COMMENT_ID/reactions"
+
+        REACTION_ID=$(gh api "$ENDPOINT" \
+          --jq '.[] | select(.content == "eyes") | .id' | head -1)
+
+        if [[ -n "$REACTION_ID" ]]; then
+          gh api -X DELETE "/repos/$REPO/reactions/$REACTION_ID" || true
+        fi
+
+        if [[ "${{ steps.agent.outputs.exit_code }}" != "0" ]]; then
+          gh api "$ENDPOINT" -X POST -f content="confused" || true
+        else
+          gh api "$ENDPOINT" -X POST -f content="+1" || true
+        fi
+
+    - name: Remove working label
+      if: always() && steps.context.outputs.number != ''
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+      run: |
+        LABEL="${{ inputs.bot_name }}: working"
+        gh issue edit "${{ steps.context.outputs.number }}" \
+          --remove-label "$LABEL" || true
+
+    - name: Propagate agent failure
+      if: always() && steps.agent.outputs.exit_code != '0'
+      shell: bash
+      run: exit 1

@@ -1,0 +1,78 @@
+---
+name: AI Agent
+
+"on":
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: Custom prompt to run
+        required: false
+      issue_number:
+        description: Issue/PR number to comment on
+        required: false
+
+  issue_comment:
+    types: [created]
+
+  pull_request:
+    types: [review_requested]
+
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  agent:
+    # yamllint disable rule:line-length
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       contains(github.event.comment.body, format('@{0}', vars.BOT_NAME || 'ai-agent')) &&
+       github.event.comment.user.login != (vars.BOT_LOGIN || 'github-actions[bot]') &&
+       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
+      (github.event_name == 'pull_request' &&
+       github.event.requested_reviewer.login == (vars.BOT_LOGIN || 'github-actions[bot]')) ||
+      (github.event_name == 'pull_request_review' &&
+       github.event.review.user.login != (vars.BOT_LOGIN || 'github-actions[bot]') &&
+       contains(github.event.review.body, format('@{0}', vars.BOT_NAME || 'ai-agent')))
+    # yamllint enable rule:line-length
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      # --- GitHub App Token (uncomment for production use) ---
+      # - name: Generate App Token
+      #   id: app-token
+      #   uses: actions/create-github-app-token@v1
+      #   with:
+      #     app-id: ${{ vars.APP_ID }}
+      #     private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}
+          fetch-depth: 0
+          # token: ${{ steps.app-token.outputs.token }}
+
+      - name: Determine mode
+        id: mode
+        shell: bash
+        run: |
+          EVENT="${{ github.event_name }}"
+          if [[ "$EVENT" == "pull_request" ]] || \
+             [[ "$EVENT" == "pull_request_review" ]]; then
+            echo "value=review" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=agent" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Agent
+        uses: dobbyphus/action@main
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          bot_name: ${{ vars.BOT_NAME || 'ai-agent' }}
+          # github_token: ${{ steps.app-token.outputs.token }}
+          mode: ${{ steps.mode.outputs.value }}
