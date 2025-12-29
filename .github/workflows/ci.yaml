@@ -1,0 +1,48 @@
+---
+name: CI
+
+"on":
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        # yamllint disable-line rule:line-length rule:comments
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+
+      - name: Lint YAML
+        # yamllint disable-line rule:line-length rule:comments
+        uses: ibiqlik/action-yamllint@2576378a8e339169678f9939646ee3ee325e845c  # v3.1.1
+
+      - name: Check Python formatting
+        # yamllint disable-line rule:line-length rule:comments
+        uses: astral-sh/ruff-action@57714a7c8a2e59f32539362ba31877a1957dded1  # v3.5.1
+        with:
+          args: "format scripts/ tests/ --check"
+
+      - name: Check Python linting
+        # yamllint disable-line rule:line-length rule:comments
+        uses: astral-sh/ruff-action@57714a7c8a2e59f32539362ba31877a1957dded1  # v3.5.1
+        with:
+          args: "check scripts/ tests/"
+
+      - name: Check shell scripts
+        run: shellcheck scripts/*.sh
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        # yamllint disable-line rule:line-length rule:comments
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Run tests
+        run: pytest tests/ -v
