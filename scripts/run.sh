@@ -1,7 +1,7 @@
 #!/bin/bash
 set -uo pipefail
 
-ACTION_PATH="${GITHUB_ACTION_PATH:-.}"
+ACTION_PATH="${ACTION_PATH:-.}"
 PROMPT_PATH="${PROMPT_PATH:-.github/prompts}"
 
 VARS_SCRIPT="$ACTION_PATH/scripts/vars.py"
