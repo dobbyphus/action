@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -241,21 +242,138 @@ def replay_commit(repo: str, original_sha: str, parent_sha: str) -> str | None:
     return commit_sha
 
 
-def create_pull_request(config: Config, head_sha: str) -> str:
-    first_commit_subject = ""
-    commits = get_commits(config.start_sha)
-    if commits:
-        first_commit_subject = get_commit_subject(commits[0])
+def get_commit_body(sha: str) -> str:
+    """Get the commit body (message without subject line)."""
+    return git("log", "-1", "--format=%b", sha).strip()
 
+
+def generate_pr_content_with_ai(commits: list[str], config: Config) -> tuple[str, str]:
+    """Use opencode to generate PR title and body from multiple commits."""
+    commit_info = []
+    for sha in commits:
+        subject = get_commit_subject(sha)
+        body = get_commit_body(sha)
+        commit_info.append(f"- {subject}")
+        if body:
+            commit_info.append(f"  {body}")
+
+    commits_text = "\n".join(commit_info)
+
+    issue_context = ""
+    if config.issue_number:
+        issue_context = f"\nThis PR addresses issue #{config.issue_number}"
+        if config.issue_title:
+            issue_context += f": {config.issue_title}"
+
+    with (
+        tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False
+        ) as title_file,
+        tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as body_file,
+    ):
+        title_path = title_file.name
+        body_path = body_file.name
+
+    prompt = f"""Generate a pull request title and body for the following commits.
+{issue_context}
+
+Commits:
+{commits_text}
+
+INSTRUCTIONS:
+1. Write ONLY the PR title to: {title_path}
+   - Use conventional commit style (feat:, fix:, docs:, refactor:, etc.)
+   - Maximum 50-60 characters
+   - Be concise and descriptive
+   - Do NOT include any newlines or extra text
+
+2. Write the PR body to: {body_path}
+   - Start with a brief summary (1-2 sentences)
+   - Include a bullet list of changes
+   - If there's an issue number, include "Closes #N" or "Fixes #N"
+   - Use markdown formatting
+
+Write ONLY to these files. Do not output anything else."""
+
+    try:
+        subprocess.run(
+            ["opencode", "run", prompt],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+        title = Path(title_path).read_text().strip()
+        body = Path(body_path).read_text().strip()
+
+        # Validate title length
+        if len(title) > 72:
+            title = title[:69] + "..."
+
+        return title, body
+
+    except (
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        FileNotFoundError,
+    ):
+        # Fallback if opencode fails
+        return generate_fallback_pr_content(commits, config)
+    finally:
+        # Clean up temp files
+        for path in [title_path, body_path]:
+            try:
+                Path(path).unlink()
+            except OSError:
+                pass
+
+
+def generate_fallback_pr_content(commits: list[str], config: Config) -> tuple[str, str]:
+    """Generate PR content without AI (fallback)."""
     if config.issue_number and config.issue_title:
         title = config.issue_title
-        body = f"Closes #{config.issue_number}"
-    elif first_commit_subject:
-        title = first_commit_subject
-        body = ""
+    elif commits:
+        title = get_commit_subject(commits[0])
     else:
         title = f"Changes from {config.current_branch}"
+
+    body_parts = []
+    if len(commits) > 1:
+        body_parts.append("## Changes\n")
+        for sha in commits:
+            subject = get_commit_subject(sha)
+            body_parts.append(f"- {subject}")
+        body_parts.append("")
+
+    if config.issue_number:
+        body_parts.append(f"Closes #{config.issue_number}")
+
+    return title, "\n".join(body_parts)
+
+
+def create_pull_request(config: Config, head_sha: str) -> str:
+    commits = get_commits(config.start_sha)
+
+    if len(commits) == 1:
+        # Single commit: use its title and body directly
+        title = get_commit_subject(commits[0])
+        body = get_commit_body(commits[0])
+        if config.issue_number:
+            if body:
+                body += f"\n\nCloses #{config.issue_number}"
+            else:
+                body = f"Closes #{config.issue_number}"
+    elif len(commits) > 1:
+        # Multiple commits: use AI to generate PR title and body
+        print("Generating PR title and body from commits...")
+        title, body = generate_pr_content_with_ai(commits, config)
+    else:
+        # No commits (shouldn't happen, but handle gracefully)
+        title = f"Changes from {config.current_branch}"
         body = ""
+        if config.issue_number:
+            body = f"Closes #{config.issue_number}"
 
     response = gh_api(
         f"repos/{config.repo}/pulls",
