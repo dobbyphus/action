@@ -99,8 +99,18 @@ runs:
         REVIEW_BODY: ${{ github.event.review.body }}
         COMMENT_BODY: ${{ github.event.comment.body }}
         PR_URL_EVENT: ${{ github.event.issue.pull_request.url }}
+        COMMENT_PATH: ${{ github.event.comment.path }}
+        COMMENT_LINE: ${{ github.event.comment.line }}
+        COMMENT_START_LINE: ${{ github.event.comment.start_line }}
+        COMMENT_DIFF_HUNK: ${{ github.event.comment.diff_hunk }}
       run: |
         EVENT="${{ github.event_name }}"
+
+        # Initialize diff context fields (only used for inline comments)
+        DIFF_PATH=""
+        DIFF_LINE=""
+        DIFF_START_LINE=""
+        DIFF_HUNK=""
 
         if [[ "$EVENT" == "workflow_dispatch" ]]; then
           NUM="${{ github.event.inputs.issue_number }}"
@@ -129,6 +139,20 @@ runs:
           PR_TITLE="$PR_TITLE_EVENT"
           PR_AUTHOR="${{ github.event.pull_request.user.login }}"
 
+        elif [[ "$EVENT" == "pull_request_review_comment" ]]; then
+          NUM="${{ github.event.pull_request.number }}"
+          AUTHOR="${{ github.event.comment.user.login }}"
+          COMMENT_ID="${{ github.event.comment.id }}"
+          CONTEXT_TYPE="pr_inline_comment"
+          COMMENT="$COMMENT_BODY"
+          PR_TITLE="$PR_TITLE_EVENT"
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          # Capture diff context for inline comments
+          DIFF_PATH="$COMMENT_PATH"
+          DIFF_LINE="$COMMENT_LINE"
+          DIFF_START_LINE="$COMMENT_START_LINE"
+          DIFF_HUNK="$COMMENT_DIFF_HUNK"
+
         else
           NUM="${{ github.event.issue.number }}"
           AUTHOR="${{ github.event.comment.user.login }}"
@@ -150,21 +174,48 @@ runs:
         echo "context_type=$CONTEXT_TYPE" >> "$GITHUB_OUTPUT"
         echo "pr_title=$PR_TITLE" >> "$GITHUB_OUTPUT"
         echo "pr_author=$PR_AUTHOR" >> "$GITHUB_OUTPUT"
+        echo "diff_path=$DIFF_PATH" >> "$GITHUB_OUTPUT"
+        echo "diff_line=$DIFF_LINE" >> "$GITHUB_OUTPUT"
+        echo "diff_start_line=$DIFF_START_LINE" >> "$GITHUB_OUTPUT"
 
         EOF_MARKER=$(openssl rand -hex 16)
         echo "comment<<$EOF_MARKER" >> "$GITHUB_OUTPUT"
         echo "$COMMENT" >> "$GITHUB_OUTPUT"
         echo "$EOF_MARKER" >> "$GITHUB_OUTPUT"
 
+        # Output diff_hunk separately (can be multiline)
+        EOF_MARKER=$(openssl rand -hex 16)
+        echo "diff_hunk<<$EOF_MARKER" >> "$GITHUB_OUTPUT"
+        echo "$DIFF_HUNK" >> "$GITHUB_OUTPUT"
+        echo "$EOF_MARKER" >> "$GITHUB_OUTPUT"
+
     - name: Build prompt_vars
       id: vars
       shell: bash
+      env:
+        DIFF_HUNK: ${{ steps.context.outputs.diff_hunk }}
       run: |
+        CONTEXT_TYPE="${{ steps.context.outputs.context_type }}"
+        DIFF_PATH="${{ steps.context.outputs.diff_path }}"
+        DIFF_LINE="${{ steps.context.outputs.diff_line }}"
+        DIFF_START="${{ steps.context.outputs.diff_start_line }}"
+
+        INLINE_CONTEXT=""
+        if [[ "$CONTEXT_TYPE" == "pr_inline_comment" && -n "$DIFF_PATH" ]]; then
+          if [[ -n "$DIFF_START" && "$DIFF_START" != "$DIFF_LINE" ]]; then
+            LINE_INFO="lines $DIFF_START-$DIFF_LINE"
+          else
+            LINE_INFO="line $DIFF_LINE"
+          fi
+          printf -v INLINE_CONTEXT '## Referenced Code\n\n**File**: `%s` (%s)\n\n```diff\n%s\n```' \
+            "$DIFF_PATH" "$LINE_INFO" "$DIFF_HUNK"
+        fi
+
         JSON=$(jq -n \
           --arg author "${{ steps.context.outputs.author }}" \
           --arg bot_name "${{ inputs.bot_name }}" \
           --arg comment "${{ steps.context.outputs.comment }}" \
-          --arg context_type "${{ steps.context.outputs.context_type }}" \
+          --arg context_type "$CONTEXT_TYPE" \
           --arg number "${{ steps.context.outputs.number }}" \
           --arg repository "${{ github.repository }}" \
           --arg default_branch "${{ github.event.repository.default_branch }}" \
@@ -172,6 +223,11 @@ runs:
           --arg pr_title "${{ steps.context.outputs.pr_title }}" \
           --arg pr_author "${{ steps.context.outputs.pr_author }}" \
           --arg requested_by "${{ steps.context.outputs.author }}" \
+          --arg diff_path "$DIFF_PATH" \
+          --arg diff_line "$DIFF_LINE" \
+          --arg diff_start_line "$DIFF_START" \
+          --arg diff_hunk "$DIFF_HUNK" \
+          --arg inline_context "$INLINE_CONTEXT" \
           '{
             author: $author,
             bot_name: $bot_name,
@@ -183,7 +239,12 @@ runs:
             pr_number: $pr_number,
             pr_title: $pr_title,
             pr_author: $pr_author,
-            requested_by: $requested_by
+            requested_by: $requested_by,
+            diff_path: $diff_path,
+            diff_line: $diff_line,
+            diff_start_line: $diff_start_line,
+            diff_hunk: $diff_hunk,
+            inline_context: $inline_context
           }')
 
         if [[ -n "${{ inputs.prompt_vars }}" ]]; then

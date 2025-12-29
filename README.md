@@ -28,6 +28,9 @@ on:
   pull_request_review:
     types: [submitted]
 
+  pull_request_review_comment:
+    types: [created]
+
 jobs:
   agent:
     if: >-
@@ -40,7 +43,11 @@ jobs:
        github.event.requested_reviewer.login == 'github-actions[bot]') ||
       (github.event_name == 'pull_request_review' &&
        github.event.review.user.login != 'github-actions[bot]' &&
-       contains(github.event.review.body, '@ai-agent'))
+       contains(github.event.review.body, '@ai-agent')) ||
+      (github.event_name == 'pull_request_review_comment' &&
+       contains(github.event.comment.body, '@ai-agent') &&
+       github.event.comment.user.login != 'github-actions[bot]' &&
+       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -111,6 +118,7 @@ Use job-level `if` to control when the agent runs. The example covers:
 - `issue_comment`: @mention by authorized user
 - `pull_request`: Non-draft PR opened or ready for review
 - `pull_request_review`: @mention in review body
+- `pull_request_review_comment`: @mention in inline diff comment
 
 ### Branch & PR Workflow
 
@@ -133,6 +141,7 @@ All commits are signed and verified by GitHub. The agent commits normally using 
 |---------|------|--------------|-------------|
 | Issue comment | `agent` | Create branch, commit | Push branch, create PR |
 | PR comment | `agent` | Commit to PR branch | Push to PR branch |
+| PR inline comment | `review` | Review code, respond | Commit to PR branch |
 | Workflow dispatch | `agent` | Create branch, commit | Push branch, create PR |
 | PR opened | `review` | Review code | Post review comment |
 | Review request | `review` | Review code | Post review comment |
