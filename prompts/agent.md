@@ -11,6 +11,8 @@
 
 {{ comment }}
 
+{{ inline_context }}
+
 ---
 
 ## Instructions

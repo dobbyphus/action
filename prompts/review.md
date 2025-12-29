@@ -8,6 +8,8 @@ Review PR #{{ pr_number }}: {{ pr_title }}
 - **Requested by**: @{{ requested_by }}
 - **Repository**: {{ repository }}
 
+{{ inline_context }}
+
 ## Getting Started
 
 ```bash
