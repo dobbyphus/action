@@ -372,24 +372,18 @@ def create_pull_request(config: Config, head_sha: str) -> str:
     if len(commits) == 1:
         title = get_commit_subject(commits[0])
         body = get_commit_body(commits[0])
-        if config.issue_number and not body_has_issue_reference(
-            body, config.issue_number
-        ):
-            if body:
-                body += f"\n\nCloses #{config.issue_number}"
-            else:
-                body = f"Closes #{config.issue_number}"
     elif len(commits) > 1:
         print("Generating PR title and body from commits...")
         title, body = generate_pr_content_with_ai(commits, config)
-        if config.issue_number and not body_has_issue_reference(
-            body, config.issue_number
-        ):
-            body += f"\n\nCloses #{config.issue_number}"
     else:
         title = f"Changes from {config.current_branch}"
         body = ""
-        if config.issue_number:
+
+    # Add issue reference if needed (single check at the end)
+    if config.issue_number and not body_has_issue_reference(body, config.issue_number):
+        if body:
+            body += f"\n\nCloses #{config.issue_number}"
+        else:
             body = f"Closes #{config.issue_number}"
 
     response = gh_api(
