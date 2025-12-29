@@ -20,6 +20,9 @@ name: AI Agent
   pull_request_review:
     types: [submitted]
 
+  pull_request_review_comment:
+    types: [created]
+
 jobs:
   agent:
     # yamllint disable rule:line-length
@@ -33,7 +36,11 @@ jobs:
        github.event.requested_reviewer.login == (vars.BOT_LOGIN || 'github-actions[bot]')) ||
       (github.event_name == 'pull_request_review' &&
        github.event.review.user.login != (vars.BOT_LOGIN || 'github-actions[bot]') &&
-       contains(github.event.review.body, format('@{0}', vars.BOT_NAME || 'ai-agent')))
+       contains(github.event.review.body, format('@{0}', vars.BOT_NAME || 'ai-agent'))) ||
+      (github.event_name == 'pull_request_review_comment' &&
+       contains(github.event.comment.body, format('@{0}', vars.BOT_NAME || 'ai-agent')) &&
+       github.event.comment.user.login != (vars.BOT_LOGIN || 'github-actions[bot]') &&
+       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
     # yamllint enable rule:line-length
     runs-on: ubuntu-latest
     permissions:
@@ -63,7 +70,8 @@ jobs:
         run: |
           EVENT="${{ github.event_name }}"
           if [[ "$EVENT" == "pull_request" ]] || \
-             [[ "$EVENT" == "pull_request_review" ]]; then
+             [[ "$EVENT" == "pull_request_review" ]] || \
+             [[ "$EVENT" == "pull_request_review_comment" ]]; then
             echo "value=review" >> "$GITHUB_OUTPUT"
           else
             echo "value=agent" >> "$GITHUB_OUTPUT"
