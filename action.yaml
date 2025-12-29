@@ -359,6 +359,7 @@ runs:
         echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
         exit 0
       env:
+        ACTION_PATH: ${{ github.action_path }}
         MODE: ${{ inputs.mode }}
         PROMPT_PATH: ${{ inputs.prompt_path }}
         PROMPT_VARS: ${{ steps.vars.outputs.json }}

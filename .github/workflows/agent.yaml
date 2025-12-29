@@ -56,7 +56,22 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Checkout
+      # SECURITY: Checkout trusted action FIRST to prevent malicious script injection
+      # If we only checkout the PR branch and use `uses: ./`, an attacker could modify
+      # scripts/replay_commits.py in their PR and it would run with GH_TOKEN access.
+      - name: Checkout action (trusted)
+        # yamllint disable-line rule:line-length rule:comments
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+        with:
+          ref: main
+          path: .trusted-action
+          sparse-checkout: |
+            action.yaml
+            scripts
+            prompts
+
+      # Now checkout the working branch (PR or main) for the agent to operate on
+      - name: Checkout working branch
         # yamllint disable-line rule:line-length rule:comments
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
         with:
@@ -77,8 +92,9 @@ jobs:
             echo "value=agent" >> "$GITHUB_OUTPUT"
           fi
 
+      # Use the TRUSTED action, which operates on the working branch in workspace
       - name: Run Agent
-        uses: ./
+        uses: ./.trusted-action
         with:
           bot_name: dobbyphus
           auth_json: ${{ secrets.COPILOT_AUTH_JSON }}
