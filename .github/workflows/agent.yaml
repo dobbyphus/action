@@ -56,9 +56,19 @@ jobs:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      # SECURITY: Checkout trusted action FIRST to prevent malicious script injection
-      # If we only checkout the PR branch and use `uses: ./`, an attacker could modify
-      # scripts/replay_commits.py in their PR and it would run with GH_TOKEN access.
+      # Checkout the working branch (PR or main) for the agent to operate on
+      - name: Checkout working branch
+        # yamllint disable-line rule:line-length rule:comments
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+        with:
+          ref: ${{ github.head_ref || github.ref }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      # SECURITY: Checkout trusted action AFTER working branch to prevent script injection
+      # If we only use `uses: ./`, an attacker could modify scripts/replay_commits.py
+      # in their PR and it would run with GH_TOKEN access. By checking out main branch
+      # to .trusted-action, we ensure only reviewed code runs with elevated permissions.
       - name: Checkout action (trusted)
         # yamllint disable-line rule:line-length rule:comments
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
@@ -69,15 +79,6 @@ jobs:
             action.yaml
             scripts
             prompts
-
-      # Now checkout the working branch (PR or main) for the agent to operate on
-      - name: Checkout working branch
-        # yamllint disable-line rule:line-length rule:comments
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
-        with:
-          ref: ${{ github.head_ref || github.ref }}
-          fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
 
       - name: Determine mode
         id: mode
