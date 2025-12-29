@@ -94,6 +94,11 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github_token }}
+        INPUT_PROMPT: ${{ github.event.inputs.prompt }}
+        PR_TITLE_EVENT: ${{ github.event.pull_request.title }}
+        REVIEW_BODY: ${{ github.event.review.body }}
+        COMMENT_BODY: ${{ github.event.comment.body }}
+        PR_URL_EVENT: ${{ github.event.issue.pull_request.url }}
       run: |
         EVENT="${{ github.event_name }}"
 
@@ -102,7 +107,7 @@ runs:
           AUTHOR="${{ github.actor }}"
           COMMENT_ID=""
           CONTEXT_TYPE="dispatch"
-          COMMENT='${{ github.event.inputs.prompt }}'
+          COMMENT="$INPUT_PROMPT"
           PR_TITLE=""
           PR_AUTHOR=""
 
@@ -112,7 +117,7 @@ runs:
           COMMENT_ID=""
           CONTEXT_TYPE="pr_opened"
           COMMENT=""
-          PR_TITLE='${{ github.event.pull_request.title }}'
+          PR_TITLE="$PR_TITLE_EVENT"
           PR_AUTHOR="${{ github.event.pull_request.user.login }}"
 
         elif [[ "$EVENT" == "pull_request_review" ]]; then
@@ -120,20 +125,19 @@ runs:
           AUTHOR="${{ github.event.review.user.login }}"
           COMMENT_ID=""
           CONTEXT_TYPE="pr_review_request"
-          COMMENT='${{ github.event.review.body }}'
-          PR_TITLE='${{ github.event.pull_request.title }}'
+          COMMENT="$REVIEW_BODY"
+          PR_TITLE="$PR_TITLE_EVENT"
           PR_AUTHOR="${{ github.event.pull_request.user.login }}"
 
         else
           NUM="${{ github.event.issue.number }}"
           AUTHOR="${{ github.event.comment.user.login }}"
           COMMENT_ID="${{ github.event.comment.id }}"
-          COMMENT='${{ github.event.comment.body }}'
+          COMMENT="$COMMENT_BODY"
           PR_TITLE=""
           PR_AUTHOR=""
 
-          PR_URL='${{ github.event.issue.pull_request.url }}'
-          if [[ -n "$PR_URL" ]]; then
+          if [[ -n "$PR_URL_EVENT" ]]; then
             CONTEXT_TYPE="pr_comment"
           else
             CONTEXT_TYPE="issue_comment"
