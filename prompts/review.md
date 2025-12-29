@@ -14,7 +14,7 @@ Review PR #{{ pr_number }}: {{ pr_title }}
 ## Getting Started
 
 ```bash
-gh pr view {{ pr_number }} --json files,reviewThreads,commits,additions,deletions
+gh pr view {{ pr_number }} --json files,reviews,commits,additions,deletions
 gh pr diff {{ pr_number }}
 ```
 
