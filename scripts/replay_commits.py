@@ -247,6 +247,23 @@ def get_commit_body(sha: str) -> str:
     return git("log", "-1", "--format=%b", sha).strip()
 
 
+def body_has_issue_reference(body: str, issue_number: str) -> bool:
+    """Check if body already contains a reference to the issue number.
+
+    Matches GitHub keywords: close, closes, closed, fix, fixes, fixed,
+    resolve, resolves, resolved (case-insensitive).
+    """
+    import re
+
+    if not body or not issue_number:
+        return False
+
+    # Pattern matches: keyword + optional space/colon + # + issue number
+    # Keywords: close(s/d), fix(es/ed), resolve(s/d)
+    pattern = rf"\b(close[sd]?|fix(es|ed)?|resolve[sd]?)\s*:?\s*#{issue_number}\b"
+    return bool(re.search(pattern, body, re.IGNORECASE))
+
+
 def generate_pr_content_with_ai(commits: list[str], config: Config) -> tuple[str, str]:
     """Use opencode to generate PR title and body from multiple commits."""
     commit_info = []
@@ -346,9 +363,6 @@ def generate_fallback_pr_content(commits: list[str], config: Config) -> tuple[st
             body_parts.append(f"- {subject}")
         body_parts.append("")
 
-    if config.issue_number:
-        body_parts.append(f"Closes #{config.issue_number}")
-
     return title, "\n".join(body_parts)
 
 
@@ -356,20 +370,23 @@ def create_pull_request(config: Config, head_sha: str) -> str:
     commits = get_commits(config.start_sha)
 
     if len(commits) == 1:
-        # Single commit: use its title and body directly
         title = get_commit_subject(commits[0])
         body = get_commit_body(commits[0])
-        if config.issue_number:
+        if config.issue_number and not body_has_issue_reference(
+            body, config.issue_number
+        ):
             if body:
                 body += f"\n\nCloses #{config.issue_number}"
             else:
                 body = f"Closes #{config.issue_number}"
     elif len(commits) > 1:
-        # Multiple commits: use AI to generate PR title and body
         print("Generating PR title and body from commits...")
         title, body = generate_pr_content_with_ai(commits, config)
+        if config.issue_number and not body_has_issue_reference(
+            body, config.issue_number
+        ):
+            body += f"\n\nCloses #{config.issue_number}"
     else:
-        # No commits (shouldn't happen, but handle gracefully)
         title = f"Changes from {config.current_branch}"
         body = ""
         if config.issue_number:
