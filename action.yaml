@@ -189,6 +189,17 @@ runs:
         echo "$DIFF_HUNK" >> "$GITHUB_OUTPUT"
         echo "$EOF_MARKER" >> "$GITHUB_OUTPUT"
 
+    - name: Detect mode
+      id: mode
+      shell: bash
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_BOT_NAME: ${{ inputs.bot_name }}
+        COMMENT_BODY: ${{ github.event.comment.body }}
+        REVIEW_BODY: ${{ github.event.review.body }}
+      run: python3 "${{ github.action_path }}/scripts/detect_mode.py"
+
     - name: Build prompt_vars
       id: vars
       shell: bash
@@ -360,7 +371,7 @@ runs:
         exit 0
       env:
         ACTION_PATH: ${{ github.action_path }}
-        MODE: ${{ inputs.mode }}
+        MODE: ${{ steps.mode.outputs.value }}
         PROMPT_PATH: ${{ inputs.prompt_path }}
         PROMPT_VARS: ${{ steps.vars.outputs.json }}
         PROMPT: ${{ inputs.prompt }}

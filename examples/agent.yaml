@@ -64,23 +64,9 @@ jobs:
           fetch-depth: 0
           # token: ${{ steps.app-token.outputs.token }}
 
-      - name: Determine mode
-        id: mode
-        shell: bash
-        run: |
-          EVENT="${{ github.event_name }}"
-          if [[ "$EVENT" == "pull_request" ]] || \
-             [[ "$EVENT" == "pull_request_review" ]] || \
-             [[ "$EVENT" == "pull_request_review_comment" ]]; then
-            echo "value=review" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=agent" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Run Agent
         uses: dobbyphus/action@main
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           bot_name: ${{ vars.BOT_NAME || 'ai-agent' }}
           # github_token: ${{ steps.app-token.outputs.token }}
-          mode: ${{ steps.mode.outputs.value }}
