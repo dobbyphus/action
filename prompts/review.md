@@ -7,6 +7,7 @@ Review PR #{{ pr_number }}: {{ pr_title }}
 - **Author**: @{{ pr_author }}
 - **Requested by**: @{{ requested_by }}
 - **Repository**: {{ repository }}
+- **Context Type**: {{ context_type }}
 
 {{ inline_context }}
 
@@ -16,6 +17,24 @@ Review PR #{{ pr_number }}: {{ pr_title }}
 gh pr view {{ pr_number }} --json files,reviewThreads,commits,additions,deletions
 gh pr diff {{ pr_number }}
 ```
+
+## Responding to Inline Comments
+
+When `context_type` is `pr_inline_comment`, you MUST reply in the same thread
+using the GitHub API (NOT `gh issue comment` or `gh pr review`):
+
+```bash
+gh api repos/{{ repository }}/pulls/{{ pr_number }}/comments \
+  -X POST \
+  -f body="$(cat <<'EOF'
+Your reply here
+EOF
+)" \
+  -F in_reply_to={{ comment_id }}
+```
+
+This ensures your response appears in the correct inline thread, not as a
+separate PR comment.
 
 ## Review Guidelines
 

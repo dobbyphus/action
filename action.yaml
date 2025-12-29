@@ -228,6 +228,7 @@ runs:
           --arg author "${{ steps.context.outputs.author }}" \
           --arg bot_name "$INPUT_BOT_NAME" \
           --arg comment "${{ steps.context.outputs.comment }}" \
+          --arg comment_id "${{ steps.context.outputs.comment_id }}" \
           --arg context_type "$CONTEXT_TYPE" \
           --arg number "${{ steps.context.outputs.number }}" \
           --arg repository "${{ github.repository }}" \
@@ -245,6 +246,7 @@ runs:
             author: $author,
             bot_name: $bot_name,
             comment: $comment,
+            comment_id: $comment_id,
             context_type: $context_type,
             number: $number,
             repository: $repository,
@@ -288,8 +290,16 @@ runs:
       run: |
         REPO="${{ github.repository }}"
         COMMENT_ID="${{ steps.context.outputs.comment_id }}"
-        gh api "/repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
-          -X POST -f content="eyes" || true
+        EVENT="${{ github.event_name }}"
+
+        # PR review comments use a different API endpoint than issue comments
+        if [[ "$EVENT" == "pull_request_review_comment" ]]; then
+          ENDPOINT="/repos/$REPO/pulls/comments/$COMMENT_ID/reactions"
+        else
+          ENDPOINT="/repos/$REPO/issues/comments/$COMMENT_ID/reactions"
+        fi
+
+        gh api "$ENDPOINT" -X POST -f content="eyes" || true
 
     - name: Add working label
       if: steps.context.outputs.number != ''
@@ -411,7 +421,14 @@ runs:
       run: |
         REPO="${{ github.repository }}"
         COMMENT_ID="${{ steps.context.outputs.comment_id }}"
-        ENDPOINT="/repos/$REPO/issues/comments/$COMMENT_ID/reactions"
+        EVENT="${{ github.event_name }}"
+
+        # PR review comments use a different API endpoint than issue comments
+        if [[ "$EVENT" == "pull_request_review_comment" ]]; then
+          ENDPOINT="/repos/$REPO/pulls/comments/$COMMENT_ID/reactions"
+        else
+          ENDPOINT="/repos/$REPO/issues/comments/$COMMENT_ID/reactions"
+        fi
 
         REACTION_ID=$(gh api "$ENDPOINT" \
           --jq '.[] | select(.content == "eyes") | .id' | head -1)
