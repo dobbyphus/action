@@ -26,3 +26,14 @@ These files contain project conventions, coding standards, and AI-specific guida
 - NEVER reference commit SHAs - they change when replayed as signed commits
 - Acknowledge requests immediately, report when done
 - Use todo tools to track your work
+
+### Comment Scope (CRITICAL)
+
+**Only comment on the specific issue/PR you were triggered from.**
+
+- If triggered from issue #42 → only comment on #42
+- If triggered from PR #15 → only comment on #15
+- If triggered via `workflow_dispatch` with no target → **DO NOT comment on any issue/PR**
+  - Just do the work silently (commits, file changes)
+  - If you need to report findings, create a NEW issue rather than commenting on unrelated ones
+- NEVER comment on unrelated issues/PRs just because they exist or seem relevant
