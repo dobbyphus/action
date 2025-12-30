@@ -32,7 +32,45 @@
    git checkout -b feat/short-description
    ```
 
-### For `issue_comment`, `pr_comment`, `pr_inline_comment`
+### For `pr_inline_comment` (inline diff comments)
+
+When responding to inline diff comments, reply **in the thread** (not the main PR):
+
+1. **Gather context first:**
+   ```bash
+   gh issue view {{ number }} --json title,body,state,labels,pullRequest
+   ```
+
+2. **Acknowledge immediately** (reply to the thread):
+   ```bash
+   gh api repos/{{ repository }}/pulls/comments \
+     -X POST \
+     -f body="$(cat <<'EOF'
+   Hey @{{ author }}! I'm on it...
+   EOF
+   )" \
+     -F in_reply_to={{ comment_id }}
+   ```
+
+3. **Plan your work** using todo tools.
+
+4. **Investigate and satisfy the request.**
+
+5. **If code changes are needed:**
+   You are already on the PR branch. Commit directly to the current branch.
+
+6. **Report completion** (reply to the thread):
+   ```bash
+   gh api repos/{{ repository }}/pulls/comments \
+     -X POST \
+     -f body="$(cat <<'EOF'
+   Done! Here's what I did...
+   EOF
+   )" \
+     -F in_reply_to={{ comment_id }}
+   ```
+
+### For `issue_comment`, `pr_comment`
 
 1. **Gather context first:**
    ```bash
@@ -52,7 +90,7 @@
 4. **Investigate and satisfy the request.**
 
 5. **If code changes are needed:**
-   - **For PR comments** (`context_type` = `pr_comment` or `pr_inline_comment`):
+   - **For PR comments** (`context_type` = `pr_comment`):
      You are already on the PR branch. Commit directly to the current branch.
    - **For issue comments** (`context_type` = `issue_comment`):
      Create a branch: `git checkout -b fix/issue-{{ number }}-short-description`
