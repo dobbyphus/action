@@ -34,7 +34,15 @@
 
 ### For `pr_inline_comment` (inline diff comments)
 
-When responding to inline diff comments, reply **in the thread** (not the main PR):
+When responding to inline diff comments, reply **in the thread** (not the main PR).
+
+**Determine your mode:**
+- If the comment asks you to handle "all", "each", or "every" comment → **Batch Mode**
+- Otherwise → **Single Comment Mode** (handle only the triggering comment)
+
+{{ base_review_threads }}
+
+#### Single Comment Mode Workflow
 
 1. **Gather context first:**
    ```bash
@@ -58,12 +66,50 @@ When responding to inline diff comments, reply **in the thread** (not the main P
 5. **If code changes are needed:**
    You are already on the PR branch. Commit directly to the current branch.
 
-6. **Report completion** (reply to the thread):
+6. **Report completion and resolve if fixed** (reply to the thread):
    ```bash
+   # Reply explaining what you did
    gh api repos/{{ repository }}/pulls/{{ number }}/comments/{{ comment_id }}/replies \
      -X POST \
      -f body="$(cat <<'EOF'
    Done! Here's what I did...
+   EOF
+   )"
+
+   # If you FIXED the issue, resolve the thread (use GraphQL thread ID from unresolved_threads)
+   gh api graphql -f query='
+     mutation {
+       resolveReviewThread(input: {pullRequestReviewThreadId: "THREAD_ID"}) {
+         thread { isResolved }
+       }
+     }
+   '
+   ```
+
+#### Batch Mode Workflow
+
+When handling ALL unresolved threads:
+
+1. **Acknowledge** on the main PR:
+   ```bash
+   gh pr comment {{ number }} --body "$(cat <<'EOF'
+   Hey @{{ author }}! I'll address all {{ unresolved_threads_count }} unresolved review comments.
+   EOF
+   )"
+   ```
+
+2. **Process each thread** using the lockstep workflow above (see `{{ base_review_threads }}`).
+
+3. **Post summary** after completing all threads:
+   ```bash
+   gh pr comment {{ number }} --body "$(cat <<'EOF'
+   ## Review Comments Addressed
+
+   | Thread | File | Action | Status |
+   |--------|------|--------|--------|
+   | ... | ... | ... | ... |
+
+   [Summary of changes made]
    EOF
    )"
    ```
