@@ -38,18 +38,17 @@ When responding to inline diff comments, reply **in the thread** (not the main P
 
 1. **Gather context first:**
    ```bash
-   gh issue view {{ number }} --json title,body,state,labels,pullRequest
+   gh pr view {{ number }} --json title,body,state,labels
    ```
 
 2. **Acknowledge immediately** (reply to the thread):
    ```bash
-   gh api repos/{{ repository }}/pulls/comments \
+   gh api repos/{{ repository }}/pulls/{{ number }}/comments/{{ comment_id }}/replies \
      -X POST \
      -f body="$(cat <<'EOF'
    Hey @{{ author }}! I'm on it...
    EOF
-   )" \
-     -F in_reply_to={{ comment_id }}
+   )"
    ```
 
 3. **Plan your work** using todo tools.
@@ -61,20 +60,19 @@ When responding to inline diff comments, reply **in the thread** (not the main P
 
 6. **Report completion** (reply to the thread):
    ```bash
-   gh api repos/{{ repository }}/pulls/comments \
+   gh api repos/{{ repository }}/pulls/{{ number }}/comments/{{ comment_id }}/replies \
      -X POST \
      -f body="$(cat <<'EOF'
    Done! Here's what I did...
    EOF
-   )" \
-     -F in_reply_to={{ comment_id }}
+   )"
    ```
 
 ### For `issue_comment`, `pr_comment`
 
 1. **Gather context first:**
    ```bash
-   gh issue view {{ number }} --json title,body,state,labels,pullRequest
+   gh issue view {{ number }} --json title,body,state,labels,comments
    ```
 
 2. **Acknowledge immediately:**
