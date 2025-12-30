@@ -60,7 +60,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref || github.ref }}
+          # github.head_ref: PR events (pull_request, pull_request_target)
+          # github.event.pull_request.head.ref: PR review/comment events
+          # github.ref: fallback for other events
+          # yamllint disable-line rule:line-length
+          ref: ${{ github.head_ref || github.event.pull_request.head.ref || github.ref }}
           fetch-depth: 0
           # token: ${{ steps.app-token.outputs.token }}
 

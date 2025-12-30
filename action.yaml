@@ -275,10 +275,23 @@ runs:
     - name: Setup git
       id: git
       shell: bash
+      env:
+        HEAD_REF: ${{ github.head_ref }}
+        PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
       run: |
         echo "start_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-        BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+        # Determine branch: github.head_ref (PR events), PR head ref (review events),
+        # or detect from git (may be "HEAD" if detached)
+        if [[ -n "$HEAD_REF" ]]; then
+          BRANCH="$HEAD_REF"
+        elif [[ -n "$PR_HEAD_REF" ]]; then
+          BRANCH="$PR_HEAD_REF"
+        else
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        fi
         echo "start_branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
