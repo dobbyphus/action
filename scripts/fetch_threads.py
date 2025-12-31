@@ -12,6 +12,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
       reviewThreads(first: 100) {
+        totalCount
         nodes {
           id
           isResolved
@@ -20,6 +21,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
           startLine
           viewerCanResolve
           comments(first: 10) {
+            totalCount
             nodes {
               id
               databaseId
@@ -85,15 +87,34 @@ def fetch_unresolved_threads(owner: str, repo: str, pr_number: int) -> list[dict
         return []
 
     try:
-        threads = response["data"]["repository"]["pullRequest"]["reviewThreads"][
-            "nodes"
-        ]
+        review_threads = response["data"]["repository"]["pullRequest"]["reviewThreads"]
+        threads = review_threads["nodes"]
+        total_threads = review_threads.get("totalCount", len(threads))
     except (KeyError, TypeError):
         return []
+
+    # Warn if pagination limits might be truncating data
+    if total_threads > 100:
+        print(
+            f"Warning: PR has {total_threads} review threads, but only fetching first 100",
+            file=sys.stderr,
+        )
 
     unresolved = []
     for thread in threads:
         if thread and not thread.get("isResolved", True):
+            comments_data = thread.get("comments", {})
+            comments_nodes = comments_data.get("nodes", [])
+            comments_total = comments_data.get("totalCount", len(comments_nodes))
+
+            # Warn if this thread has more comments than we fetched
+            if comments_total > 10:
+                print(
+                    f"Warning: Thread {thread.get('id')} has {comments_total} "
+                    "comments, but only fetching first 10",
+                    file=sys.stderr,
+                )
+
             unresolved.append(
                 {
                     "id": thread.get("id"),
@@ -109,7 +130,7 @@ def fetch_unresolved_threads(owner: str, repo: str, pr_number: int) -> list[dict
                             "body": c.get("body", ""),
                             "created_at": c.get("createdAt"),
                         }
-                        for c in thread.get("comments", {}).get("nodes", [])
+                        for c in comments_nodes
                         if c
                     ],
                 }
@@ -153,10 +174,12 @@ def format_threads_for_prompt(threads: list[dict]) -> str:
             lines.append("- **Comments**:")
             for comment in comments:
                 author = comment.get("author", "unknown")
+                database_id = comment.get("database_id")
                 body = comment.get("body", "").strip()
                 # Truncate long comments in summary
                 if len(body) > 200:
                     body = body[:197] + "..."
+                lines.append(f"  - **Comment ID**: `{database_id}`")
                 lines.append(f"  - @{author}: {body}")
 
         lines.append("")

@@ -33,16 +33,15 @@ Determine if this is:
 
 ```bash
 # 1. Make the code change (using your tools)
-# 2. Reply explaining what you fixed
-gh api repos/{{ repository }}/pulls/{{ pr_number }}/comments \
+# 2. Reply explaining what you fixed (replace COMMENT_ID with the numeric comment ID)
+gh api repos/{{ repository }}/pulls/{{ pr_number }}/comments/COMMENT_ID/replies \
   -X POST \
   -f body="$(cat <<'EOF'
 Fixed! [Explain what you changed and why]
 EOF
-)" \
-  -F in_reply_to=COMMENT_DATABASE_ID
+)"
 
-# 3. Resolve the thread (use the GraphQL thread ID, not database ID)
+# 3. Resolve the thread (replace THREAD_ID with the GraphQL node ID like PRRT_...)
 gh api graphql -f query='
   mutation {
     resolveReviewThread(input: {pullRequestReviewThreadId: "THREAD_ID"}) {
@@ -56,7 +55,8 @@ gh api graphql -f query='
 
 ```bash
 # 1. Reply explaining why you disagree (DO NOT resolve)
-gh api repos/{{ repository }}/pulls/{{ pr_number }}/comments \
+# Replace COMMENT_ID with the numeric comment ID
+gh api repos/{{ repository }}/pulls/{{ pr_number }}/comments/COMMENT_ID/replies \
   -X POST \
   -f body="$(cat <<'EOF'
 I respectfully disagree with this suggestion.
@@ -66,15 +66,15 @@ I respectfully disagree with this suggestion.
 
 I'll leave this thread open for discussion.
 EOF
-)" \
-  -F in_reply_to=COMMENT_DATABASE_ID
+)"
 ```
 
 **If UNCLEAR:**
 
 ```bash
 # 1. Ask for clarification (DO NOT resolve)
-gh api repos/{{ repository }}/pulls/{{ pr_number }}/comments \
+# Replace COMMENT_ID with the numeric comment ID
+gh api repos/{{ repository }}/pulls/{{ pr_number }}/comments/COMMENT_ID/replies \
   -X POST \
   -f body="$(cat <<'EOF'
 I need clarification on this comment.
@@ -85,20 +85,24 @@ I need clarification on this comment.
 
 Once clarified, I can [describe what you'll be able to do].
 EOF
-)" \
-  -F in_reply_to=COMMENT_DATABASE_ID
+)"
 ```
 
 ### Important Notes
 
-1. **Thread ID vs Database ID**: The GraphQL `resolveReviewThread` mutation requires
-   the GraphQL node ID (looks like `PRRT_...`), while the REST API reply uses the
-   numeric database ID.
+1. **Placeholders to Replace**:
+   - `COMMENT_ID`: The numeric database ID of the comment (e.g., `2654335644`)
+   - `THREAD_ID`: The GraphQL node ID for the thread (looks like `PRRT_...`)
+   - Both IDs are provided in the unresolved threads data above
 
-2. **Only Resolve When Fixed**: Never resolve a thread unless you've actually made
+2. **Thread ID vs Comment ID**: The GraphQL `resolveReviewThread` mutation requires
+   the GraphQL node ID (looks like `PRRT_...`), while the REST API `/replies` endpoint
+   uses the numeric comment ID in the URL path.
+
+3. **Only Resolve When Fixed**: Never resolve a thread unless you've actually made
    the code change. If you disagree or need clarification, leave the thread open.
 
-3. **Lockstep = Sequential**: Complete each comment fully (analyze → act → resolve)
+4. **Lockstep = Sequential**: Complete each comment fully (analyze → act → resolve)
    before moving to the next.
 
 4. **Batch Summary**: When completing batch mode, post a summary comment:

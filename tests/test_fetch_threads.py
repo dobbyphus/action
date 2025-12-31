@@ -32,7 +32,9 @@ class TestFetchUnresolvedThreads:
         def mock_run_graphql(query, variables):
             return {
                 "data": {
-                    "repository": {"pullRequest": {"reviewThreads": {"nodes": []}}}
+                    "repository": {
+                        "pullRequest": {"reviewThreads": {"totalCount": 0, "nodes": []}}
+                    }
                 }
             }
 
@@ -50,6 +52,7 @@ class TestFetchUnresolvedThreads:
                     "repository": {
                         "pullRequest": {
                             "reviewThreads": {
+                                "totalCount": 1,
                                 "nodes": [
                                     {
                                         "id": "thread1",
@@ -58,9 +61,9 @@ class TestFetchUnresolvedThreads:
                                         "line": 10,
                                         "startLine": None,
                                         "viewerCanResolve": True,
-                                        "comments": {"nodes": []},
+                                        "comments": {"totalCount": 0, "nodes": []},
                                     }
-                                ]
+                                ],
                             }
                         }
                     }
@@ -81,6 +84,7 @@ class TestFetchUnresolvedThreads:
                     "repository": {
                         "pullRequest": {
                             "reviewThreads": {
+                                "totalCount": 2,
                                 "nodes": [
                                     {
                                         "id": "thread1",
@@ -90,6 +94,7 @@ class TestFetchUnresolvedThreads:
                                         "startLine": 40,
                                         "viewerCanResolve": True,
                                         "comments": {
+                                            "totalCount": 1,
                                             "nodes": [
                                                 {
                                                     "id": "comment1",
@@ -98,7 +103,7 @@ class TestFetchUnresolvedThreads:
                                                     "body": "Fix this bug",
                                                     "createdAt": "2025-01-01T00:00:00Z",
                                                 }
-                                            ]
+                                            ],
                                         },
                                     },
                                     {
@@ -108,9 +113,9 @@ class TestFetchUnresolvedThreads:
                                         "line": 5,
                                         "startLine": None,
                                         "viewerCanResolve": True,
-                                        "comments": {"nodes": []},
+                                        "comments": {"totalCount": 0, "nodes": []},
                                     },
-                                ]
+                                ],
                             }
                         }
                     }
@@ -141,6 +146,22 @@ class TestFetchUnresolvedThreads:
         result = fetch_unresolved_threads("owner", "repo", 1)
         assert result == []
 
+    def test_graphql_error_response(self, monkeypatch):
+        """Test handling of GraphQL response with errors field."""
+
+        def mock_run_graphql(query, variables):
+            return {
+                "errors": [
+                    {"message": "Something went wrong", "type": "INTERNAL_ERROR"}
+                ],
+                "data": None,
+            }
+
+        monkeypatch.setattr("fetch_threads.run_graphql", mock_run_graphql)
+
+        result = fetch_unresolved_threads("owner", "repo", 1)
+        assert result == []
+
     def test_null_thread_in_nodes(self, monkeypatch):
         """Test handling of null thread in nodes array."""
 
@@ -150,6 +171,7 @@ class TestFetchUnresolvedThreads:
                     "repository": {
                         "pullRequest": {
                             "reviewThreads": {
+                                "totalCount": 2,
                                 "nodes": [
                                     None,
                                     {
@@ -159,9 +181,9 @@ class TestFetchUnresolvedThreads:
                                         "line": 10,
                                         "startLine": None,
                                         "viewerCanResolve": False,
-                                        "comments": {"nodes": []},
+                                        "comments": {"totalCount": 0, "nodes": []},
                                     },
-                                ]
+                                ],
                             }
                         }
                     }
@@ -195,6 +217,7 @@ class TestFormatThreadsForPrompt:
                 "comments": [
                     {
                         "author": "reviewer",
+                        "database_id": 12345,
                         "body": "Please fix this",
                     }
                 ],
@@ -207,6 +230,8 @@ class TestFormatThreadsForPrompt:
         assert "thread123" in result
         assert "@reviewer" in result
         assert "Please fix this" in result
+        assert "Comment ID" in result
+        assert "12345" in result
 
     def test_multiline_thread(self):
         """Test formatting thread with start and end lines."""
