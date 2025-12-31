@@ -200,6 +200,23 @@ runs:
         REVIEW_BODY: ${{ github.event.review.body }}
       run: python3 "${{ github.action_path }}/scripts/detect_mode.py"
 
+    - name: Fetch review threads
+      id: threads
+      if: >-
+        steps.context.outputs.context_type == 'pr_inline_comment' ||
+        steps.context.outputs.context_type == 'pr_comment' ||
+        steps.context.outputs.context_type == 'pr_review_request'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+      run: |
+        OWNER="${{ github.repository_owner }}"
+        REPO="${{ github.event.repository.name }}"
+        PR_NUM="${{ steps.context.outputs.number }}"
+
+        python3 "${{ github.action_path }}/scripts/fetch_threads.py" \
+          "$OWNER" "$REPO" "$PR_NUM"
+
     - name: Build prompt_vars
       id: vars
       shell: bash
@@ -207,6 +224,8 @@ runs:
         DIFF_HUNK: ${{ steps.context.outputs.diff_hunk }}
         INPUT_BOT_NAME: ${{ inputs.bot_name }}
         INPUT_PROMPT_VARS: ${{ inputs.prompt_vars }}
+        THREADS_JSON: ${{ steps.threads.outputs.json }}
+        THREADS_COUNT: ${{ steps.threads.outputs.count }}
       run: |
         CONTEXT_TYPE="${{ steps.context.outputs.context_type }}"
         DIFF_PATH="${{ steps.context.outputs.diff_path }}"
@@ -222,6 +241,12 @@ runs:
           fi
           printf -v INLINE_CONTEXT '## Referenced Code\n\n**File**: `%s` (%s)\n\n```diff\n%s\n```' \
             "$DIFF_PATH" "$LINE_INFO" "$DIFF_HUNK"
+        fi
+
+        # Extract thread summary from threads JSON if available
+        THREADS_SUMMARY=""
+        if [[ -n "$THREADS_JSON" ]]; then
+          THREADS_SUMMARY=$(echo "$THREADS_JSON" | jq -r '.summary // ""')
         fi
 
         JSON=$(jq -n \
@@ -242,6 +267,8 @@ runs:
           --arg diff_start_line "$DIFF_START" \
           --arg diff_hunk "$DIFF_HUNK" \
           --arg inline_context "$INLINE_CONTEXT" \
+          --arg unresolved_threads "$THREADS_SUMMARY" \
+          --arg unresolved_threads_count "${THREADS_COUNT:-0}" \
           '{
             author: $author,
             bot_name: $bot_name,
@@ -259,7 +286,9 @@ runs:
             diff_line: $diff_line,
             diff_start_line: $diff_start_line,
             diff_hunk: $diff_hunk,
-            inline_context: $inline_context
+            inline_context: $inline_context,
+            unresolved_threads: $unresolved_threads,
+            unresolved_threads_count: $unresolved_threads_count
           }')
 
         if [[ -n "$INPUT_PROMPT_VARS" ]]; then
