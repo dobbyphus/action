@@ -110,9 +110,19 @@ Thanks!"""
         )
 
     def test_partial_bot_name_not_matched(self):
-        # Should not match partial bot names
         assert is_review_request("@dobbyphus-bot review", "dobbyphus") is False
         assert is_review_request("@dobbyphus123 review", "dobbyphus") is False
+
+    def test_partial_bot_name_at_end_not_matched(self):
+        assert is_review_request("please review @dobbyphus-bot", "dobbyphus") is False
+        assert is_review_request("please review @dobbyphus123", "dobbyphus") is False
+        assert (
+            is_review_request("can you review this @dobbyphus-bot", "dobbyphus")
+            is False
+        )
+        assert (
+            is_review_request("review the PR @dobbyphus-extended", "dobbyphus") is False
+        )
 
     def test_different_bot_name(self):
         assert is_review_request("@ai-agent review", "ai-agent") is True
