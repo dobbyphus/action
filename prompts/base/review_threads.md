@@ -33,7 +33,9 @@ Determine if this is:
 
 ```bash
 # 1. Make the code change (using your tools)
-# 2. Reply explaining what you fixed (replace COMMENT_ID with the numeric comment ID)
+# 2. Reply explaining what you fixed
+#    - Single mode: use {{ comment_id }}
+#    - Batch mode: use the Comment ID from the thread data above
 gh api repos/{{ repository }}/pulls/{{ pr_number }}/comments/COMMENT_ID/replies \
   -X POST \
   -f body="$(cat <<'EOF'
@@ -41,7 +43,7 @@ Fixed! [Explain what you changed and why]
 EOF
 )"
 
-# 3. Resolve the thread (replace THREAD_ID with the GraphQL node ID like PRRT_...)
+# 3. Resolve the thread (use the Thread ID from the thread data, looks like PRRT_...)
 gh api graphql -f query='
   mutation {
     resolveReviewThread(input: {pullRequestReviewThreadId: "THREAD_ID"}) {
@@ -55,7 +57,8 @@ gh api graphql -f query='
 
 ```bash
 # 1. Reply explaining why you disagree (DO NOT resolve)
-# Replace COMMENT_ID with the numeric comment ID
+#    - Single mode: use {{ comment_id }}
+#    - Batch mode: use the Comment ID from the thread data above
 gh api repos/{{ repository }}/pulls/{{ pr_number }}/comments/COMMENT_ID/replies \
   -X POST \
   -f body="$(cat <<'EOF'
@@ -73,7 +76,8 @@ EOF
 
 ```bash
 # 1. Ask for clarification (DO NOT resolve)
-# Replace COMMENT_ID with the numeric comment ID
+#    - Single mode: use {{ comment_id }}
+#    - Batch mode: use the Comment ID from the thread data above
 gh api repos/{{ repository }}/pulls/{{ pr_number }}/comments/COMMENT_ID/replies \
   -X POST \
   -f body="$(cat <<'EOF'
@@ -90,14 +94,15 @@ EOF
 
 ### Important Notes
 
-1. **Placeholders to Replace**:
-   - `COMMENT_ID`: The numeric database ID of the comment (e.g., `2654335644`)
-   - `THREAD_ID`: The GraphQL node ID for the thread (looks like `PRRT_...`)
-   - Both IDs are provided in the unresolved threads data above
+1. **Comment IDs**:
+   - **Single Comment Mode**: Use `{{ comment_id }}` directly in the commands (it's already known)
+   - **Batch Mode**: Get the Comment ID from each thread's data in "Unresolved Review Threads" above
+   - Example: If thread shows `**Comment ID**: \`2654335644\``, use that number
 
-2. **Thread ID vs Comment ID**: The GraphQL `resolveReviewThread` mutation requires
-   the GraphQL node ID (looks like `PRRT_...`), while the REST API `/replies` endpoint
-   uses the numeric comment ID in the URL path.
+2. **Thread IDs (for GraphQL)**:
+   - The GraphQL `resolveReviewThread` mutation requires the GraphQL node ID
+   - Find it in the thread data as `**Thread ID**: \`PRRT_...\``
+   - Example: `PRRT_kwDOxxxxxxx...`
 
 3. **Only Resolve When Fixed**: Never resolve a thread unless you've actually made
    the code change. If you disagree or need clarification, leave the thread open.
@@ -105,7 +110,7 @@ EOF
 4. **Lockstep = Sequential**: Complete each comment fully (analyze → act → resolve)
    before moving to the next.
 
-4. **Batch Summary**: When completing batch mode, post a summary comment:
+5. **Batch Summary**: When completing batch mode, post a summary comment:
    ```bash
    gh pr comment {{ pr_number }} --body "$(cat <<'EOF'
    ## Review Comments Addressed
