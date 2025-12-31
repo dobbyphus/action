@@ -84,6 +84,15 @@ inputs:
     description: Full auth.json content (advanced, overrides API keys)
     required: false
 
+  agent_keywords:
+    description: Keywords to prepend for agent mode prompts (triggers oh-my-opencode modes)
+    required: false
+    default: ultrawork
+  review_keywords:
+    description: Keywords to prepend for review mode prompts (triggers oh-my-opencode modes)
+    required: false
+    default: analyze
+
 runs:
   using: composite
 
@@ -428,6 +437,8 @@ runs:
         PROMPT_VARS: ${{ steps.vars.outputs.json }}
         PROMPT: ${{ inputs.prompt }}
         GITHUB_TOKEN: ${{ inputs.github_token }}
+        AGENT_KEYWORDS: ${{ inputs.agent_keywords }}
+        REVIEW_KEYWORDS: ${{ inputs.review_keywords }}
 
     # === TEARDOWN (always runs) ===
     - name: Replay commits as signed
