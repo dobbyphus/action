@@ -5,35 +5,51 @@ import os
 import re
 
 
-def is_review_request(body: str, bot_name: str) -> bool:
-    """Check if the comment is requesting a review.
+# Patterns that indicate an explicit review request.
+# These are matched case-insensitively and require the bot to be mentioned.
+# The patterns use {bot} as a placeholder for the escaped bot name.
+REVIEW_COMMAND_PATTERNS = [
+    # @bot review, @bot please review, @bot, review
+    r"@{bot}\s*[,:]?\s*(please\s+)?review\b",
+    # @bot can/could/would you review
+    r"@{bot}\s*[,:]?\s*(can|could|would)\s+you\s+(please\s+)?review\b",
+    # can/could/would you review ... @bot
+    r"\b(can|could|would)\s+you\s+(please\s+)?review\b.*@{bot}",
+    # review this/the PR/changes @bot
+    r"\breview\s+(this|the\s+(pr|changes?|code))\s+@{bot}",
+    # please review @bot
+    r"\bplease\s+review\s+@{bot}",
+    # @bot - review (with dash separator)
+    r"@{bot}\s*-\s*review\b",
+]
 
-    Returns True if:
-    1. The comment mentions @bot_name, AND
-    2. The comment contains the word "review" (case-insensitive, whole word)
+
+def is_review_request(body: str, bot_name: str) -> bool:
+    """Check if the comment is explicitly requesting a review.
+
+    Uses whitelist patterns to only match explicit review commands, not
+    incidental mentions of the word "review" (e.g., "review comments").
+
+    Returns True if the comment matches one of the review command patterns.
 
     Args:
         body: The comment or review body text
         bot_name: The bot's mention name (without @)
 
     Returns:
-        True if this is a review request, False otherwise
+        True if this is an explicit review request, False otherwise
     """
     if not body or not bot_name:
         return False
 
-    # Check for @bot_name mention (case-insensitive)
-    # GitHub usernames can contain alphanumeric and hyphens, so we need to
-    # ensure we're not matching a partial username (e.g., @dobbyphus-bot)
-    mention_pattern = re.compile(
-        rf"@{re.escape(bot_name)}(?![a-zA-Z0-9-])", re.IGNORECASE
-    )
-    if not mention_pattern.search(body):
-        return False
+    escaped_bot = re.escape(bot_name)
 
-    # Check for "review" as a whole word (not "reviewed", "reviewer", etc.)
-    review_pattern = re.compile(r"\breview\b", re.IGNORECASE)
-    return bool(review_pattern.search(body))
+    for pattern_template in REVIEW_COMMAND_PATTERNS:
+        pattern = pattern_template.format(bot=escaped_bot)
+        if re.search(pattern, body, re.IGNORECASE):
+            return True
+
+    return False
 
 
 def detect_mode(

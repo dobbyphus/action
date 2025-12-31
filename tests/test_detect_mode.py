@@ -70,8 +70,44 @@ Thanks!"""
         assert is_review_request("@dobbyphus add me as reviewer", "dobbyphus") is False
 
     def test_reviewing_not_matched(self):
-        # "reviewing" should not trigger review mode
         assert is_review_request("@dobbyphus I'm reviewing now", "dobbyphus") is False
+
+    def test_review_comments_noun_phrase_not_matched(self):
+        assert (
+            is_review_request(
+                "@dobbyphus look at all the review comments and fix them", "dobbyphus"
+            )
+            is False
+        )
+
+    def test_fix_review_comments_not_matched(self):
+        assert (
+            is_review_request("@dobbyphus fix the review comments", "dobbyphus")
+            is False
+        )
+
+    def test_address_review_feedback_not_matched(self):
+        assert (
+            is_review_request("@dobbyphus address the review feedback", "dobbyphus")
+            is False
+        )
+
+    def test_code_review_noun_not_matched(self):
+        assert (
+            is_review_request("@dobbyphus the code review has comments", "dobbyphus")
+            is False
+        )
+
+    def test_review_threads_not_matched(self):
+        assert (
+            is_review_request("@dobbyphus handle all review threads", "dobbyphus")
+            is False
+        )
+
+    def test_under_review_not_matched(self):
+        assert (
+            is_review_request("@dobbyphus this is under review", "dobbyphus") is False
+        )
 
     def test_partial_bot_name_not_matched(self):
         # Should not match partial bot names
