@@ -124,6 +124,14 @@ Thanks!"""
             is_review_request("review the PR @dobbyphus-extended", "dobbyphus") is False
         )
 
+    def test_partial_bot_name_with_underscore_not_matched(self):
+        assert is_review_request("please review @dobbyphus_bot", "dobbyphus") is False
+        assert (
+            is_review_request("can you review this @dobbyphus_extended", "dobbyphus")
+            is False
+        )
+        assert is_review_request("review the code @dobbyphus_alt", "dobbyphus") is False
+
     def test_different_bot_name(self):
         assert is_review_request("@ai-agent review", "ai-agent") is True
         assert is_review_request("@my_bot review this", "my_bot") is True

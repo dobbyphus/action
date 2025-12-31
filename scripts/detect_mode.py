@@ -8,19 +8,19 @@ import re
 # Patterns that indicate an explicit review request.
 # These are matched case-insensitively and require the bot to be mentioned.
 # The patterns use {bot} as a placeholder for the escaped bot name.
-# IMPORTANT: Use (?![a-zA-Z0-9-]) after @{bot} to prevent matching partial usernames
-# (e.g., @dobbyphus-bot should not match bot_name "dobbyphus")
+# IMPORTANT: Use (?![a-zA-Z0-9_-]) after @{bot} to prevent matching partial usernames
+# (e.g., @dobbyphus-bot or @dobbyphus_bot should not match bot_name "dobbyphus")
 REVIEW_COMMAND_PATTERNS = [
     # @bot review, @bot please review, @bot, review
     r"@{bot}\s*[,:]?\s*(please\s+)?review\b",
     # @bot can/could/would you review
     r"@{bot}\s*[,:]?\s*(can|could|would)\s+you\s+(please\s+)?review\b",
     # can/could/would you review ... @bot
-    r"\b(can|could|would)\s+you\s+(please\s+)?review\b.*@{bot}(?![a-zA-Z0-9-])",
+    r"\b(can|could|would)\s+you\s+(please\s+)?review\b.*@{bot}(?![a-zA-Z0-9_-])",
     # review this/the PR/changes @bot
-    r"\breview\s+(this|the\s+(pr|changes?|code))\s+@{bot}(?![a-zA-Z0-9-])",
+    r"\breview\s+(this|the\s+(pr|changes?|code))\s+@{bot}(?![a-zA-Z0-9_-])",
     # please review @bot
-    r"\bplease\s+review\s+@{bot}(?![a-zA-Z0-9-])",
+    r"\bplease\s+review\s+@{bot}(?![a-zA-Z0-9_-])",
     # @bot - review (with dash separator)
     r"@{bot}\s*-\s*review\b",
 ]
