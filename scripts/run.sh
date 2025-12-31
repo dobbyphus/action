@@ -34,6 +34,19 @@ else
   TEMPLATE=$("$PROMPT_SCRIPT" "$ACTION_PATH" "$PROMPT_PATH" "${MODE:-}")
 fi
 
+# Prepend mode-specific keywords to trigger oh-my-opencode modes
+KEYWORDS=""
+if [[ "${MODE:-}" == "agent" && -n "${AGENT_KEYWORDS:-}" ]]; then
+  KEYWORDS="${AGENT_KEYWORDS}"
+elif [[ "${MODE:-}" == "review" && -n "${REVIEW_KEYWORDS:-}" ]]; then
+  KEYWORDS="${REVIEW_KEYWORDS}"
+fi
+
+if [[ -n "$KEYWORDS" ]]; then
+  KEYWORDS=$("$SUBSTITUTE_SCRIPT" "$VARS" <<< "$KEYWORDS")
+  TEMPLATE="${KEYWORDS}"$'\n'"${TEMPLATE}"
+fi
+
 FINAL=$("$SUBSTITUTE_SCRIPT" "$VARS" <<< "$TEMPLATE")
 
 set +e

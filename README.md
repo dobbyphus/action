@@ -92,6 +92,8 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | `config_json` | - | Full opencode.json content (advanced) |
 | `omo_config_json` | - | Full oh-my-opencode.json content (advanced) |
 | `auth_json` | - | Full auth.json content (advanced) |
+| `agent_keywords` | `ultrawork` | Keywords to prepend for agent mode (triggers oh-my-opencode modes) |
+| `review_keywords` | `analyze` | Keywords to prepend for review mode (triggers oh-my-opencode modes) |
 
 ## How It Works
 
