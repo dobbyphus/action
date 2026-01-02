@@ -1,6 +1,6 @@
 # Agent Request
 
-@{{ author }} requested work in {{ repository }}.
+{{ author_mention }} requested work in {{ repository }}.
 
 ## Context
 
@@ -54,7 +54,7 @@ When responding to inline diff comments, reply **in the thread** (not the main P
    gh api repos/{{ repository }}/pulls/{{ number }}/comments/{{ comment_id }}/replies \
      -X POST \
      -f body="$(cat <<'EOF'
-   Hey @{{ author }}! I'm on it...
+   Hey {{ author_mention }}! I'm on it...
    EOF
    )"
    ```
@@ -93,7 +93,7 @@ When handling ALL unresolved threads:
 1. **Acknowledge** on the main PR:
    ```bash
    gh pr comment {{ number }} --body "$(cat <<'EOF'
-   Hey @{{ author }}! I'll address all {{ unresolved_threads_count }} unresolved review comments.
+   Hey {{ author_mention }}! I'll address all {{ unresolved_threads_count }} unresolved review comments.
    EOF
    )"
    ```
@@ -124,7 +124,7 @@ When handling ALL unresolved threads:
 2. **Acknowledge immediately:**
    ```bash
    gh issue comment {{ number }} --body "$(cat <<'EOF'
-   Hey @{{ author }}! I'm on it...
+   Hey {{ author_mention }}! I'm on it...
    EOF
    )"
    ```

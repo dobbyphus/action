@@ -4,8 +4,8 @@ Review PR #{{ pr_number }}: {{ pr_title }}
 
 ## Context
 
-- **Author**: @{{ pr_author }}
-- **Requested by**: @{{ requested_by }}
+- **Author**: {{ pr_author_mention }}
+- **Requested by**: {{ requested_by_mention }}
 - **Repository**: {{ repository }}
 - **Context Type**: {{ context_type }}
 
