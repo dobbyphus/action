@@ -14,6 +14,11 @@ inputs:
     required: false
     default: ai-agent
 
+  mention_users:
+    description: Whether to @mention users in comments (default false to reduce noise)
+    required: false
+    default: "false"
+
   anthropic_api_key:
     description: Anthropic API key
     required: false
@@ -232,6 +237,7 @@ runs:
       env:
         DIFF_HUNK: ${{ steps.context.outputs.diff_hunk }}
         INPUT_BOT_NAME: ${{ inputs.bot_name }}
+        INPUT_MENTION_USERS: ${{ inputs.mention_users }}
         INPUT_PROMPT_VARS: ${{ inputs.prompt_vars }}
         THREADS_JSON: ${{ steps.threads.outputs.json }}
         THREADS_COUNT: ${{ steps.threads.outputs.count }}
@@ -258,9 +264,26 @@ runs:
           THREADS_SUMMARY=$(echo "$THREADS_JSON" | jq -r '.summary // ""')
         fi
 
+        # Compute mention strings based on mention_users flag
+        # When true: include @username, when false: omit username entirely
+        AUTHOR="${{ steps.context.outputs.author }}"
+        PR_AUTHOR="${{ steps.context.outputs.pr_author }}"
+        REQUESTED_BY="${{ steps.context.outputs.author }}"
+        if [[ "$INPUT_MENTION_USERS" == "true" ]]; then
+          AUTHOR_MENTION="@$AUTHOR"
+          PR_AUTHOR_MENTION="@$PR_AUTHOR"
+          REQUESTED_BY_MENTION="@$REQUESTED_BY"
+        else
+          AUTHOR_MENTION=""
+          PR_AUTHOR_MENTION=""
+          REQUESTED_BY_MENTION=""
+        fi
+
         JSON=$(jq -n \
-          --arg author "${{ steps.context.outputs.author }}" \
+          --arg author "$AUTHOR" \
+          --arg author_mention "$AUTHOR_MENTION" \
           --arg bot_name "$INPUT_BOT_NAME" \
+          --arg mention_users "$INPUT_MENTION_USERS" \
           --arg comment "${{ steps.context.outputs.comment }}" \
           --arg comment_id "${{ steps.context.outputs.comment_id }}" \
           --arg context_type "$CONTEXT_TYPE" \
@@ -269,8 +292,10 @@ runs:
           --arg default_branch "${{ github.event.repository.default_branch }}" \
           --arg pr_number "${{ steps.context.outputs.number }}" \
           --arg pr_title "${{ steps.context.outputs.pr_title }}" \
-          --arg pr_author "${{ steps.context.outputs.pr_author }}" \
-          --arg requested_by "${{ steps.context.outputs.author }}" \
+          --arg pr_author "$PR_AUTHOR" \
+          --arg pr_author_mention "$PR_AUTHOR_MENTION" \
+          --arg requested_by "$REQUESTED_BY" \
+          --arg requested_by_mention "$REQUESTED_BY_MENTION" \
           --arg diff_path "$DIFF_PATH" \
           --arg diff_line "$DIFF_LINE" \
           --arg diff_start_line "$DIFF_START" \
@@ -280,7 +305,9 @@ runs:
           --arg unresolved_threads_count "${THREADS_COUNT:-0}" \
           '{
             author: $author,
+            author_mention: $author_mention,
             bot_name: $bot_name,
+            mention_users: $mention_users,
             comment: $comment,
             comment_id: $comment_id,
             context_type: $context_type,
@@ -290,7 +317,9 @@ runs:
             pr_number: $pr_number,
             pr_title: $pr_title,
             pr_author: $pr_author,
+            pr_author_mention: $pr_author_mention,
             requested_by: $requested_by,
+            requested_by_mention: $requested_by_mention,
             diff_path: $diff_path,
             diff_line: $diff_line,
             diff_start_line: $diff_start_line,
