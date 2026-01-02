@@ -19,11 +19,6 @@ inputs:
     required: false
     default: "false"
 
-  include_usernames:
-    description: Whether to include usernames at all (default true). Set false to remove mentions entirely.
-    required: false
-    default: "true"
-
   anthropic_api_key:
     description: Anthropic API key
     required: false
@@ -243,7 +238,6 @@ runs:
         DIFF_HUNK: ${{ steps.context.outputs.diff_hunk }}
         INPUT_BOT_NAME: ${{ inputs.bot_name }}
         INPUT_MENTION_USERS: ${{ inputs.mention_users }}
-        INPUT_INCLUDE_USERNAMES: ${{ inputs.include_usernames }}
         INPUT_PROMPT_VARS: ${{ inputs.prompt_vars }}
         THREADS_JSON: ${{ steps.threads.outputs.json }}
         THREADS_COUNT: ${{ steps.threads.outputs.count }}
@@ -270,22 +264,19 @@ runs:
           THREADS_SUMMARY=$(echo "$THREADS_JSON" | jq -r '.summary // ""')
         fi
 
-        # Compute mention strings based on mention_users and include_usernames flags
+        # Compute mention strings based on mention_users flag
+        # When true: include @username, when false: omit username entirely
         AUTHOR="${{ steps.context.outputs.author }}"
         PR_AUTHOR="${{ steps.context.outputs.pr_author }}"
         REQUESTED_BY="${{ steps.context.outputs.author }}"
-        if [[ "$INPUT_INCLUDE_USERNAMES" == "false" ]]; then
-          AUTHOR_MENTION=""
-          PR_AUTHOR_MENTION=""
-          REQUESTED_BY_MENTION=""
-        elif [[ "$INPUT_MENTION_USERS" == "true" ]]; then
+        if [[ "$INPUT_MENTION_USERS" == "true" ]]; then
           AUTHOR_MENTION="@$AUTHOR"
           PR_AUTHOR_MENTION="@$PR_AUTHOR"
           REQUESTED_BY_MENTION="@$REQUESTED_BY"
         else
-          AUTHOR_MENTION="$AUTHOR"
-          PR_AUTHOR_MENTION="$PR_AUTHOR"
-          REQUESTED_BY_MENTION="$REQUESTED_BY"
+          AUTHOR_MENTION=""
+          PR_AUTHOR_MENTION=""
+          REQUESTED_BY_MENTION=""
         fi
 
         JSON=$(jq -n \

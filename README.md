@@ -73,8 +73,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | Input | Default | Description |
 |-------|---------|-------------|
 | `bot_name` | `ai-agent` | Bot name for labels and mentions |
-| `mention_users` | `false` | Whether to @mention users in comments |
-| `include_usernames` | `true` | Whether to include usernames at all (set `false` to remove entirely) |
+| `mention_users` | `false` | Whether to @mention users in comments (reduces notification noise when false) |
 | `anthropic_api_key` | - | Anthropic API key |
 | `openai_api_key` | - | OpenAI API key |
 | `gemini_api_key` | - | Google Gemini API key |
