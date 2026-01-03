@@ -2,6 +2,8 @@
 
 ### ALWAYS use heredoc syntax for comments containing code references, backticks, or multiline content:
 
+If unsure, default to heredoc to avoid shell escaping issues. Never risk backtick loss.
+
 ```bash
 gh issue comment <number> --body "$(cat <<'EOF'
 Your comment with `backticks` and code references preserved here.
@@ -25,14 +27,14 @@ EOF
 
 ### GitHub Markdown Rules (MUST FOLLOW)
 
-**Code blocks MUST have EXACTLY 3 backticks and language identifier:**
+**Code blocks MUST use EXACTLY 3 backticks and a language identifier.**
 - CORRECT: ` ```bash ` ... ` ``` `
 - WRONG: ` ``` ` (no language), ` ```` ` (4 backticks), ` `` ` (2 backticks)
 
-**Every opening ` ``` ` MUST have a closing ` ``` ` on its own line**
+**Close every fence on its own line.**
 
-**NO trailing backticks or spaces after closing ` ``` `**
+**Do not add trailing backticks or spaces after the closing fence.**
 
-**For inline code, use SINGLE backticks:** `code` not ```code```
+**Use SINGLE backticks for inline code:** `code` not ```code```
 
-**Lists inside code blocks break rendering - avoid them or use plain text**
+**Do not use lists inside fenced code blocks.**

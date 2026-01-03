@@ -11,6 +11,18 @@ Review PR #{{ pr_number }}: {{ pr_title }}
 
 {{ inline_context }}
 
+## Required First Steps (NON-NEGOTIABLE)
+
+1. **READ FULL PR CONTEXT** (all comments and reviews) BEFORE ANY REVIEW ACTION:
+   ```bash
+   gh pr view {{ pr_number }} --comments
+   gh api repos/{{ repository }}/pulls/{{ pr_number }}/comments
+   gh api repos/{{ repository }}/pulls/{{ pr_number }}/reviews
+   ```
+2. Capture prior decisions, feedback, and unresolved concerns before reviewing.
+3. **CREATE TODOS IMMEDIATELY AFTER READING** using todo tools.
+4. If you post any interim comment, include requirements + TODOs explicitly.
+
 ## Getting Started
 
 ```bash
@@ -51,13 +63,20 @@ separate PR comment.
 - No excessive comments
 - Tests for new functionality
 
+### Output Requirements (NON-NEGOTIABLE)
+
+- Label every finding as `BLOCKER` or `NON-BLOCKER`.
+- Anchor every finding to an exact `file:line` (or exact symbol name if no line).
+- Do not use `might`, `could`, `maybe`, or `consider`.
+- Never state or imply you ran commands you did not run.
+
 ## Review Process
 
-1. Fetch PR details with `gh pr view`
-2. Read the diff with `gh pr diff`
-3. Check for unresolved threads
-4. Identify issues by severity: CRITICAL / WARNING / SUGGESTION
-5. Submit review using `gh pr review`
+1. Fetch PR details with `gh pr view`.
+2. Read the diff with `gh pr diff`.
+3. Check for unresolved threads.
+4. Identify issues by severity: CRITICAL / WARNING / SUGGESTION.
+5. Submit review using `gh pr review`.
 
 **Note**: This is a review-only task. NEVER make commits, run `git push`, or
 reference commit SHAs (they change when replayed as signed commits).
