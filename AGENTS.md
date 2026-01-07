@@ -193,6 +193,52 @@ def test_file_operation(self):
         assert result == expected
 ```
 
+## Commit & Pull Request Guidelines
+
+Follow Linux kernel commit message style:
+
+### Subject line
+- **50 characters or less** (hard limit: 72)
+- Imperative mood ("Add feature" not "Added feature" or "Adds feature")
+- Use conventional commit format: `type(scope): description`
+  - Types: `fix`, `feat`, `chore`, `refactor`, `test`, `perf`, `docs`
+  - Scopes: `prompts`, `scripts`, `action`, `ci`, `deps`, etc.
+- No period at end
+- Examples:
+  - `fix(prompts): clarify branch creation requirements`
+  - `feat(action): add model preset configuration`
+  - `chore(docs): update README with new inputs`
+  - `chore(deps): update oh-my-opencode to v1.2.0`
+
+### Body
+- Separate from subject with a blank line
+- **Wrap at 72 characters**
+- Explain *what* and *why*, not *how* (the code shows how)
+- Use prose, not bullet points: describe the problem, the fix, and why it helps
+- Reference issues/PRs at the bottom if applicable
+
+### Example
+```
+feat(prompts): add intent classification for research vs implementation
+
+Agent previously treated all requests as implementation tasks, leading
+to unwanted code changes when users only wanted investigation. The
+"research this issue" command resulted in commits that were rejected
+because no branch was created.
+
+Add explicit intent classification section that distinguishes RESEARCH
+mode (investigate and report) from IMPLEMENTATION mode (create branch
+and code). Include trigger word lists and clear examples to guide the
+agent's behavior.
+
+Closes #42
+```
+
+### Pull Requests
+- Describe what/why in the PR body
+- List commands run (`pytest tests/ -v`, linting, etc.)
+- Link related issues/TODOs
+
 ## Action Development
 
 ### Adding New Inputs
