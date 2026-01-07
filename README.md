@@ -95,6 +95,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | `auth_json` | - | Full auth.json content (advanced) |
 | `agent_keywords` | `ultrawork` | Keywords to prepend for agent mode (triggers oh-my-opencode modes) |
 | `review_keywords` | `analyze` | Keywords to prepend for review mode (triggers oh-my-opencode modes) |
+| `format_output` | `true` | Format output with collapsible sections for GitHub Actions logs |
 
 ## How It Works
 
