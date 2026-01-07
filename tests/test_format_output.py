@@ -125,12 +125,24 @@ class TestFormatToolOutput:
         result = format_tool_output("bash", {"command": "true"}, "")
         assert result == "$ true"
 
-    def test_other_tool_returns_output(self):
+    def test_read_suppresses_output(self):
         result = format_tool_output("read", {}, "file contents")
-        assert result == "file contents"
+        assert result == ""
+
+    def test_glob_suppresses_output(self):
+        result = format_tool_output("glob", {}, "file1.py\nfile2.py")
+        assert result == ""
+
+    def test_grep_suppresses_output(self):
+        result = format_tool_output("grep", {}, "match1\nmatch2")
+        assert result == ""
+
+    def test_other_tool_returns_output(self):
+        result = format_tool_output("webfetch", {}, "page contents")
+        assert result == "page contents"
 
     def test_empty_output(self):
-        result = format_tool_output("read", {}, "")
+        result = format_tool_output("webfetch", {}, "")
         assert result == ""
 
 
@@ -202,6 +214,21 @@ class TestHandleToolUse:
     def test_tool_with_output(self):
         output = io.StringIO()
         part = {
+            "tool": "webfetch",
+            "state": {
+                "input": {"url": "https://example.com"},
+                "output": "page contents here",
+            },
+        }
+        handle_tool_use(part, output)
+        result = output.getvalue()
+        assert "::group::🌐 Webfetch: https://example.com" in result
+        assert "page contents here" in result
+        assert "::endgroup::" in result
+
+    def test_read_suppresses_output(self):
+        output = io.StringIO()
+        part = {
             "tool": "read",
             "state": {
                 "input": {"filePath": "/test/file.py"},
@@ -211,7 +238,7 @@ class TestHandleToolUse:
         handle_tool_use(part, output)
         result = output.getvalue()
         assert "::group::📄 Read: /test/file.py" in result
-        assert "file contents here" in result
+        assert "file contents here" not in result
         assert "::endgroup::" in result
 
     def test_tool_without_output(self):
