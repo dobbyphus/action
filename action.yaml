@@ -98,6 +98,11 @@ inputs:
     required: false
     default: analyze
 
+  format_output:
+    description: Format output with collapsible sections for GitHub Actions logs
+    required: false
+    default: "true"
+
 runs:
   using: composite
 
@@ -468,6 +473,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github_token }}
         AGENT_KEYWORDS: ${{ inputs.agent_keywords }}
         REVIEW_KEYWORDS: ${{ inputs.review_keywords }}
+        FORMAT_OUTPUT: ${{ inputs.format_output }}
 
     # === TEARDOWN (always runs) ===
     - name: Replay commits as signed

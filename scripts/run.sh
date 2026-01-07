@@ -48,9 +48,14 @@ if [[ -n "$KEYWORDS" ]]; then
 fi
 
 FINAL=$("$SUBSTITUTE_SCRIPT" "$VARS" <<< "$TEMPLATE")
+FORMAT_SCRIPT="$ACTION_PATH/scripts/format_output.py"
 
 set +e
-opencode run "$FINAL"
+if [[ "${FORMAT_OUTPUT:-true}" == "true" ]] && [[ "${GITHUB_ACTIONS:-}" == "true" ]] && [[ -f "$FORMAT_SCRIPT" ]]; then
+  python3 "$FORMAT_SCRIPT" "$FINAL"
+else
+  opencode run "$FINAL"
+fi
 EXIT_CODE=$?
 set -e
 
