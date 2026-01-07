@@ -99,10 +99,15 @@ def format_todos(todos: list) -> str:
     return "\n".join(lines)
 
 
+SUPPRESS_OUTPUT_TOOLS = {"read", "glob", "grep"}
+
+
 def format_tool_output(tool_name: str, tool_input: dict, tool_output: str) -> str:
     name_lower = tool_name.lower()
 
-    if name_lower == "todowrite":
+    if name_lower in SUPPRESS_OUTPUT_TOOLS:
+        return ""
+    elif name_lower == "todowrite":
         todos = tool_input.get("todos", [])
         if todos:
             return format_todos(todos)
