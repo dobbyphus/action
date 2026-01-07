@@ -17,6 +17,49 @@ Work requested in {{ repository }}.
 
 ---
 
+## Intent Classification (DETERMINE FIRST)
+
+Before taking any action, classify the request:
+
+### RESEARCH Mode
+
+**Trigger words**: "research", "investigate", "analyze", "look into", "review", "check", "explore", "understand", "explain", "examine", "assess", "evaluate", "diagnose"
+
+**What to do**:
+- Gather information and analyze
+- Read code, issues, logs, documentation
+- Report findings via comment on #{{ number }}
+- **DO NOT write code, create branches, or make commits**
+
+**Output**: A comment summarizing findings, root causes, recommendations
+
+### IMPLEMENTATION Mode
+
+**Trigger words**: "fix", "implement", "create", "add", "update", "change", "build", "make", "refactor", "migrate", "upgrade", "resolve", "address" (as in "address this bug")
+
+**What to do**:
+- **FIRST**: Create a branch (`git checkout -b <branch-name>`)
+- Then: Write code, tests, make commits
+- The workflow handles push and PR creation
+
+**CRITICAL**: If IMPLEMENTATION mode, you MUST create a branch BEFORE any code changes.
+
+### Mixed Requests
+
+If a request contains BOTH research AND implementation language (e.g., "investigate and fix"):
+- Default to **RESEARCH first**: understand the problem fully
+- Ask for confirmation before implementing OR
+- If clearly actionable, proceed to IMPLEMENTATION with branch creation
+
+### When in Doubt
+
+- "research this issue" → RESEARCH only
+- "look into this and create a PR" → IMPLEMENTATION (explicit PR request)
+- "investigate the bug" → RESEARCH only
+- "fix the bug" → IMPLEMENTATION
+
+---
+
 ## Instructions
 
 ### Required First Steps (NON-NEGOTIABLE)
@@ -158,31 +201,46 @@ When handling ALL unresolved threads:
 
 ### For `issue_comment`, `pr_comment`
 
-1. **Gather context first:**
+1. **Classify intent** (see Intent Classification above):
+   - RESEARCH → Investigate and report findings only
+   - IMPLEMENTATION → Create branch, then code
+
+2. **Gather context first:**
    ```bash
    gh issue view {{ number }} --json title,body,state,labels,comments
    ```
 
-2. **Acknowledge immediately** with requirements + TODOs:
+3. **Acknowledge immediately** with your classification + TODOs:
    ```bash
    gh issue comment {{ number }} --body "$(cat <<'EOF'
    {{ author_mention }} I have read the full thread. Here's my understanding and plan:
 
-   - Requirements: ...
-   - TODOs: ...
+   - **Mode**: [RESEARCH / IMPLEMENTATION]
+   - **Requirements**: ...
+   - **TODOs**: ...
    EOF
    )"
    ```
 
-3. **Plan your work** using todo tools.
+4. **Plan your work** using todo tools.
 
-4. **Investigate and satisfy the request.**
+5. **Execute based on mode:**
 
-5. **If code changes are needed:**
+   **If RESEARCH mode:**
+   - Investigate: read code, analyze, gather information
+   - **DO NOT** write code, create branches, or make commits
+   - Report findings via comment on #{{ number }}
+
+   **If IMPLEMENTATION mode:**
    - **For PR comments** (`context_type` = `pr_comment`):
      You are already on the PR branch. Commit directly to the current branch.
    - **For issue comments** (`context_type` = `issue_comment`):
-     Create a branch: `git checkout -b fix/issue-{{ number }}-short-description`
+     **FIRST**: Create a branch before ANY code changes:
+     ```bash
+     git checkout -b fix/issue-{{ number }}-short-description
+     git branch --show-current  # Verify NOT on main
+     ```
+   - Then: Make changes, write tests, commit
 
 6. **Report completion** via comment on #{{ number }}.
 

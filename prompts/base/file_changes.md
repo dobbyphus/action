@@ -1,14 +1,42 @@
 ## Git Workflow
 
-You MUST create a branch for your work. Commits to the default branch are not allowed.
+### BLOCKING: Branch Verification (BEFORE ANY CODE CHANGES)
+
+**Commits to the default branch (main/master) are REJECTED by the system.**
+
+Before writing ANY code, editing ANY file, or making ANY commit:
+
+```bash
+# Check current branch
+git branch --show-current
+```
+
+- If output is `main` or `master` → **STOP. Create a branch first.**
+- If output is a feature branch → Proceed with changes.
 
 ### Required Workflow
 
-1. Create a branch: `git checkout -b <branch-name>`
-   - Use descriptive names: `fix/typo-in-readme`, `feat/add-auth`, `issue-42-fix-login`
-2. Make your changes and commit with clear messages
-3. Your commits are automatically signed and pushed
-4. A pull request is automatically created
+1. **FIRST**: Create a branch (MANDATORY for any code changes):
+   ```bash
+   git checkout -b <branch-name>
+   ```
+   - For issues: `fix/issue-{{ number }}-short-description` or `feat/issue-{{ number }}-description`
+   - General: `fix/typo-in-readme`, `feat/add-auth`
+
+2. **VERIFY** you are on the new branch:
+   ```bash
+   git branch --show-current  # Must NOT be main/master
+   ```
+
+3. Make your changes and commit with clear messages
+
+4. Your commits are automatically signed and pushed
+
+5. A pull request is automatically created
+
+### Why This Matters
+
+The replay system WILL FAIL if you commit to the default branch. Your work will be lost. Always branch first.
 
 ### What You CAN Do
 
