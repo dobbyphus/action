@@ -117,12 +117,20 @@ class TestFormatToolOutput:
         assert "✅ Task 1" in result
         assert "⬚ Task 2" in result
 
+    def test_bash_shows_command_and_output(self):
+        result = format_tool_output("bash", {"command": "echo hello"}, "hello\n")
+        assert result == "$ echo hello\nhello\n"
+
+    def test_bash_shows_command_only_when_no_output(self):
+        result = format_tool_output("bash", {"command": "true"}, "")
+        assert result == "$ true"
+
     def test_other_tool_returns_output(self):
-        result = format_tool_output("bash", {}, "command output")
-        assert result == "command output"
+        result = format_tool_output("read", {}, "file contents")
+        assert result == "file contents"
 
     def test_empty_output(self):
-        result = format_tool_output("bash", {}, "")
+        result = format_tool_output("read", {}, "")
         assert result == ""
 
 
@@ -131,7 +139,13 @@ class TestFormatToolInput:
         result = format_tool_input("read", {"filePath": "/path/to/file.py"})
         assert result == "/path/to/file.py"
 
-    def test_bash_command_short(self):
+    def test_bash_uses_description(self):
+        result = format_tool_input(
+            "bash", {"command": "ls -la", "description": "List files"}
+        )
+        assert result == "List files"
+
+    def test_bash_falls_back_to_command(self):
         result = format_tool_input("bash", {"command": "ls -la"})
         assert result == "ls -la"
 

@@ -54,6 +54,9 @@ def format_tool_input(tool_name: str, tool_input: dict) -> str:
     if name_lower in ("read", "write", "edit"):
         return tool_input.get("filePath", "")
     elif name_lower == "bash":
+        desc = tool_input.get("description", "")
+        if desc:
+            return desc
         cmd = tool_input.get("command", "")
         return cmd[:60] + "..." if len(cmd) > 60 else cmd
     elif name_lower in ("grep", "glob"):
@@ -97,10 +100,19 @@ def format_todos(todos: list) -> str:
 
 
 def format_tool_output(tool_name: str, tool_input: dict, tool_output: str) -> str:
-    if tool_name.lower() == "todowrite":
+    name_lower = tool_name.lower()
+
+    if name_lower == "todowrite":
         todos = tool_input.get("todos", [])
         if todos:
             return format_todos(todos)
+    elif name_lower == "bash":
+        cmd = tool_input.get("command", "")
+        output_text = truncate_content(tool_output) if tool_output else ""
+        if cmd:
+            return f"$ {cmd}\n{output_text}" if output_text else f"$ {cmd}"
+        return output_text
+
     return truncate_content(tool_output) if tool_output else ""
 
 
