@@ -522,7 +522,7 @@ runs:
           --jq '.[] | select(.content == "eyes") | .id' | head -1)
 
         if [[ -n "$REACTION_ID" ]]; then
-          gh api -X DELETE "/repos/$REPO/reactions/$REACTION_ID" || true
+          gh api -X DELETE "$ENDPOINT/$REACTION_ID" || true
         fi
 
         if [[ "${{ steps.agent.outputs.exit_code }}" != "0" ]]; then
