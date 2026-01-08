@@ -78,3 +78,34 @@ class TestGenerateOmoConfig:
         assert agents["oracle"]["model"] == "o"
         for agent in FAST_AGENTS:
             assert agents[agent]["model"] == "f"
+
+    def test_git_master_config(self):
+        result = generate_omo_config("balanced", None, None, None, "true", "true")
+        assert result["git_master"] == {
+            "commit_footer": True,
+            "include_co_authored_by": True,
+        }
+
+    def test_git_master_config_false(self):
+        result = generate_omo_config("balanced", None, None, None, "false", "false")
+        assert result["git_master"] == {
+            "commit_footer": False,
+            "include_co_authored_by": False,
+        }
+
+    def test_git_master_config_mixed(self):
+        result = generate_omo_config("balanced", None, None, None, "true", "false")
+        assert result["git_master"] == {
+            "commit_footer": True,
+            "include_co_authored_by": False,
+        }
+
+    def test_git_master_config_partial(self):
+        result = generate_omo_config("balanced", None, None, None, None, "true")
+        assert result["git_master"] == {
+            "include_co_authored_by": True,
+        }
+
+    def test_git_master_config_none(self):
+        result = generate_omo_config("balanced", None, None, None)
+        assert "git_master" not in result

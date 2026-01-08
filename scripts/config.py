@@ -45,6 +45,8 @@ def generate_omo_config(
     primary_override: str | None,
     oracle_override: str | None,
     fast_override: str | None,
+    commit_footer: str | None = None,
+    include_co_authored_by: str | None = None,
 ) -> dict:
     models = PRESETS.get(preset, PRESETS["balanced"]).copy()
 
@@ -63,7 +65,18 @@ def generate_omo_config(
     for agent in FAST_AGENTS:
         agents[agent] = {"model": models["fast"]}
 
-    return {"agents": agents}
+    config = {"agents": agents}
+
+    git_master = {}
+    if commit_footer is not None:
+        git_master["commit_footer"] = commit_footer.lower() == "true"
+    if include_co_authored_by is not None:
+        git_master["include_co_authored_by"] = include_co_authored_by.lower() == "true"
+
+    if git_master:
+        config["git_master"] = git_master
+
+    return config
 
 
 def main():
@@ -76,6 +89,8 @@ def main():
     primary_override = os.environ.get("PRIMARY_MODEL")
     oracle_override = os.environ.get("ORACLE_MODEL")
     fast_override = os.environ.get("FAST_MODEL")
+    commit_footer = os.environ.get("COMMIT_FOOTER")
+    include_co_authored_by = os.environ.get("INCLUDE_CO_AUTHORED_BY")
 
     auth_dir = Path.home() / ".local" / "share" / "opencode"
     auth_dir.mkdir(parents=True, exist_ok=True)
@@ -98,7 +113,12 @@ def main():
         omo_file.write_text(omo_config_json)
     else:
         omo_config = generate_omo_config(
-            preset, primary_override, oracle_override, fast_override
+            preset,
+            primary_override,
+            oracle_override,
+            fast_override,
+            commit_footer,
+            include_co_authored_by,
         )
         omo_file.write_text(json.dumps(omo_config, indent=2))
 
