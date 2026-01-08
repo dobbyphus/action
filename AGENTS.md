@@ -198,17 +198,19 @@ def test_file_operation(self):
 Follow Linux kernel commit message style:
 
 ### Subject line
-- **50 characters or less** (hard limit: 72)
+- **50 characters maximum** - this is a hard limit, not a suggestion
+  - Exceptional cases only (e.g., unavoidable long names): 72 chars absolute max
+  - If you can't fit in 50, move detail to the body
 - Imperative mood ("Add feature" not "Added feature" or "Adds feature")
 - Use conventional commit format: `type(scope): description`
   - Types: `fix`, `feat`, `chore`, `refactor`, `test`, `perf`, `docs`
   - Scopes: `prompts`, `scripts`, `action`, `ci`, `deps`, etc.
 - No period at end
 - Examples:
-  - `fix(prompts): clarify branch creation requirements`
-  - `feat(action): add model preset configuration`
-  - `chore(docs): update README with new inputs`
-  - `chore(deps): update oh-my-opencode to v1.2.0`
+  - `fix(prompts): clarify branch requirements` (41 chars)
+  - `feat(action): add model preset config` (38 chars)
+  - `chore(docs): update README inputs table` (40 chars)
+  - `chore(deps): bump oh-my-opencode to v1.2` (41 chars)
 
 ### Body
 - Separate from subject with a blank line
