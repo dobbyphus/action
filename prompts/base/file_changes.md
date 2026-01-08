@@ -54,11 +54,4 @@ The replay system WILL FAIL if you commit to the default branch. Your work will 
 - `git rebase -i` - NEVER rewrite history interactively
 - Reference commit SHAs in comments - NEVER; SHAs change when replayed as signed
 
-### Commit Messages
-
-Use conventional commit format:
-
-- `feat: add user authentication`
-- `fix: resolve null pointer in parser`
-- `docs: update API documentation`
-- `refactor: simplify error handling`
+{{ base_commit_style }}
