@@ -98,6 +98,16 @@ inputs:
     required: false
     default: analyze
 
+  commit_footer:
+    description: Add oh-my-opencode footer to commits (true/false)
+    required: false
+    default: "false"
+
+  include_co_authored_by:
+    description: Add Co-authored-by trailer to commits (true/false)
+    required: false
+    default: "false"
+
   format_output:
     description: Format output with collapsible sections for GitHub Actions logs
     required: false
@@ -452,6 +462,8 @@ runs:
         PRIMARY_MODEL: ${{ inputs.primary_model }}
         ORACLE_MODEL: ${{ inputs.oracle_model }}
         FAST_MODEL: ${{ inputs.fast_model }}
+        COMMIT_FOOTER: ${{ inputs.commit_footer }}
+        INCLUDE_CO_AUTHORED_BY: ${{ inputs.include_co_authored_by }}
         GITHUB_TOKEN: ${{ inputs.github_token }}
 
     # === RUN AGENT ===
