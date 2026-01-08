@@ -162,7 +162,7 @@ fi
 - Use yamllint disable comments for long lines in workflows:
   ```yaml
   # yamllint disable-line rule:line-length rule:comments
-  uses: actions/checkout@abc123def456  # v4.0.0
+  uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
   ```
 - Pin actions to commit SHA with version comment
 - Quote `"on"` key to avoid YAML boolean interpretation

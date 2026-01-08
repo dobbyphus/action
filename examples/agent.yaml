@@ -58,7 +58,7 @@ jobs:
       #     private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # github.head_ref: PR events (pull_request, pull_request_target)
           # github.event.pull_request.head.ref: PR review/comment events

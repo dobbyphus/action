@@ -55,7 +55,7 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.head_ref || github.ref }}
           fetch-depth: 0
@@ -198,7 +198,7 @@ For production use. Provides higher API limits, can trigger workflows, and commi
     app-id: ${{ vars.APP_ID }}
     private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-- uses: actions/checkout@v4
+- uses: actions/checkout@v6
   with:
     ref: ${{ github.head_ref || github.ref }}
     fetch-depth: 0
