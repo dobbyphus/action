@@ -109,14 +109,34 @@ def get_remote_branch_sha(repo: str, branch: str) -> str | None:
     return None
 
 
-def filter_new_commits(commits: list[str], remote_ref: str) -> list[str]:
-    """Filter out commits that are ancestors of remote_ref (already on remote)."""
+def is_commit_signed(repo: str, sha: str) -> bool:
+    """Check if a commit on remote is signed (verified by GitHub)."""
+    result = gh_api(
+        f"repos/{repo}/commits/{sha}",
+        jq=".commit.verification.verified",
+        check=False,
+    )
+    return result == "true"
+
+
+def filter_new_commits(repo: str, commits: list[str], remote_ref: str) -> list[str]:
+    """Filter commits, keeping those that need replaying.
+
+    A commit needs replaying if it's either:
+    - Not on the remote branch at all, OR
+    - On the remote branch but unsigned (pushed directly, not via GitHub API)
+    """
     new_commits = []
     for sha in commits:
         try:
-            # If this succeeds, sha is an ancestor of remote_ref (already on remote)
+            # If this succeeds, sha is an ancestor of remote_ref (on remote)
             git("merge-base", "--is-ancestor", sha, remote_ref)
-            print(f"  Skipping {sha[:7]} (already on remote)")
+            # Commit is on remote - check if it's signed
+            if is_commit_signed(repo, sha):
+                print(f"  Skipping {sha[:7]} (already signed on remote)")
+            else:
+                print(f"  Including {sha[:7]} (on remote but unsigned)")
+                new_commits.append(sha)
         except subprocess.CalledProcessError:
             # sha is NOT an ancestor of remote_ref (new commit)
             new_commits.append(sha)
@@ -452,8 +472,13 @@ def main() -> int:
     if remote_sha:
         print(f"Remote branch exists at {remote_sha[:7]}")
         git("fetch", "origin", current_branch, check=False)
-        commits = filter_new_commits(commits, f"origin/{current_branch}")
+        commits = filter_new_commits(repo, commits, f"origin/{current_branch}")
         replay_base = remote_sha
+        if commits:
+            try:
+                replay_base = git("rev-parse", f"{commits[0]}^")
+            except subprocess.CalledProcessError:
+                replay_base = remote_sha
     else:
         replay_base = start_sha
 
