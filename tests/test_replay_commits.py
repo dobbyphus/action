@@ -2,10 +2,38 @@
 
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from replay_commits import body_has_issue_reference
+from replay_commits import body_has_issue_reference, is_commit_signed
+
+
+class TestIsCommitSigned:
+    @patch("replay_commits.gh_api")
+    def test_signed_commit_returns_true(self, mock_gh_api):
+        mock_gh_api.return_value = "true"
+        assert is_commit_signed("owner/repo", "abc123") is True
+        mock_gh_api.assert_called_once_with(
+            "repos/owner/repo/commits/abc123",
+            jq=".commit.verification.verified",
+            check=False,
+        )
+
+    @patch("replay_commits.gh_api")
+    def test_unsigned_commit_returns_false(self, mock_gh_api):
+        mock_gh_api.return_value = "false"
+        assert is_commit_signed("owner/repo", "abc123") is False
+
+    @patch("replay_commits.gh_api")
+    def test_api_error_returns_false(self, mock_gh_api):
+        mock_gh_api.return_value = ""
+        assert is_commit_signed("owner/repo", "abc123") is False
+
+    @patch("replay_commits.gh_api")
+    def test_null_response_returns_false(self, mock_gh_api):
+        mock_gh_api.return_value = "null"
+        assert is_commit_signed("owner/repo", "abc123") is False
 
 
 class TestBodyHasIssueReference:
