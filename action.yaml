@@ -108,6 +108,21 @@ inputs:
     required: false
     default: "false"
 
+  skill_enable_git_master:
+    description: Enable git-master builtin skill (true/false)
+    required: false
+    default: "false"
+
+  skill_enable_playwright:
+    description: Enable playwright builtin skill (true/false)
+    required: false
+    default: "false"
+
+  skill_enable_frontend_ui_ux:
+    description: Enable frontend-ui-ux builtin skill (true/false)
+    required: false
+    default: "false"
+
   format_output:
     description: Format output with collapsible sections for GitHub Actions logs
     required: false
@@ -464,6 +479,9 @@ runs:
         FAST_MODEL: ${{ inputs.fast_model }}
         COMMIT_FOOTER: ${{ inputs.commit_footer }}
         INCLUDE_CO_AUTHORED_BY: ${{ inputs.include_co_authored_by }}
+        SKILL_ENABLE_GIT_MASTER: ${{ inputs.skill_enable_git_master }}
+        SKILL_ENABLE_PLAYWRIGHT: ${{ inputs.skill_enable_playwright }}
+        SKILL_ENABLE_FRONTEND_UI_UX: ${{ inputs.skill_enable_frontend_ui_ux }}
         GITHUB_TOKEN: ${{ inputs.github_token }}
 
     # === RUN AGENT ===
