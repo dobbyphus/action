@@ -17,6 +17,7 @@ def load_config_module():
 config = load_config_module()
 FAST_AGENTS = config.FAST_AGENTS
 PRESETS = config.PRESETS
+build_auth = config.build_auth
 generate_auth = config.generate_auth
 generate_omo_config = config.generate_omo_config
 parse_provider_list = config.parse_provider_list
@@ -37,23 +38,41 @@ class TestGenerateAuth:
 
     def test_anthropic_only(self):
         result = generate_auth("sk-ant-123", None, None)
-        assert result == {"anthropic": {"apiKey": "sk-ant-123"}}
+        assert result == {"anthropic": {"type": "api", "key": "sk-ant-123"}}
 
     def test_openai_only(self):
         result = generate_auth(None, "sk-openai-123", None)
-        assert result == {"openai": {"apiKey": "sk-openai-123"}}
+        assert result == {"openai": {"type": "api", "key": "sk-openai-123"}}
 
     def test_gemini_only(self):
         result = generate_auth(None, None, "gemini-key")
-        assert result == {"google": {"apiKey": "gemini-key"}}
+        assert result == {"google": {"type": "api", "key": "gemini-key"}}
 
     def test_all_providers(self):
         result = generate_auth("ant", "oai", "gem")
         assert result == {
-            "anthropic": {"apiKey": "ant"},
-            "openai": {"apiKey": "oai"},
-            "google": {"apiKey": "gem"},
+            "anthropic": {"type": "api", "key": "ant"},
+            "openai": {"type": "api", "key": "oai"},
+            "google": {"type": "api", "key": "gem"},
         }
+
+
+class TestBuildAuth:
+    def test_base_keys_only(self):
+        result = build_auth("ant", None, None, None)
+        assert result == {"anthropic": {"type": "api", "key": "ant"}}
+
+    def test_auth_json_merges_and_overrides(self):
+        auth_json = '{"openai": {"type": "api", "key": "override"}}'
+        result = build_auth("ant", "oai", None, auth_json)
+        assert result == {
+            "anthropic": {"type": "api", "key": "ant"},
+            "openai": {"type": "api", "key": "override"},
+        }
+
+    def test_auth_json_empty_object(self):
+        result = build_auth("ant", None, None, "{}")
+        assert result == {"anthropic": {"type": "api", "key": "ant"}}
 
 
 class TestParseProviderList:

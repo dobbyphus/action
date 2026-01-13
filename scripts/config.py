@@ -63,12 +63,25 @@ def generate_auth(
 ) -> dict:
     auth = {}
     if anthropic_key:
-        auth["anthropic"] = {"apiKey": anthropic_key}
+        auth["anthropic"] = {"type": "api", "key": anthropic_key}
     if openai_key:
-        auth["openai"] = {"apiKey": openai_key}
+        auth["openai"] = {"type": "api", "key": openai_key}
     if gemini_key:
-        auth["google"] = {"apiKey": gemini_key}
+        auth["google"] = {"type": "api", "key": gemini_key}
     return auth
+
+
+def build_auth(
+    anthropic_key: str | None,
+    openai_key: str | None,
+    gemini_key: str | None,
+    auth_json: str | None,
+) -> dict:
+    auth = generate_auth(anthropic_key, openai_key, gemini_key)
+    if auth_json is None:
+        return auth
+    auth_override = parse_json_object(auth_json, "AUTH_JSON")
+    return merge_configs(auth, auth_override)
 
 
 def generate_omo_config(
@@ -157,12 +170,15 @@ def main():
     auth_dir.mkdir(parents=True, exist_ok=True)
     auth_file = auth_dir / "auth.json"
 
-    if auth_json:
-        auth_file.write_text(auth_json)
-    else:
-        auth = generate_auth(anthropic_key, openai_key, gemini_key)
-        if auth:
-            auth_file.write_text(json.dumps(auth, indent=2))
+    auth_json_provided = auth_json is not None
+    try:
+        auth = build_auth(anthropic_key, openai_key, gemini_key, auth_json)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if auth_json_provided or auth:
+        auth_file.write_text(json.dumps(auth, indent=2))
 
     auth_file.chmod(0o600)
 
