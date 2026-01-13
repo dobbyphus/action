@@ -48,6 +48,9 @@ def generate_omo_config(
     fast_override: str | None,
     commit_footer: str | None = None,
     include_co_authored_by: str | None = None,
+    enable_git_master: str | None = None,
+    enable_playwright: str | None = None,
+    enable_frontend_ui_ux: str | None = None,
 ) -> dict:
     models = PRESETS.get(preset, PRESETS["balanced"]).copy()
 
@@ -66,7 +69,18 @@ def generate_omo_config(
     for agent in FAST_AGENTS:
         agents[agent] = {"model": models["fast"]}
 
-    config = {"agents": agents}
+    config: dict[str, object] = {"agents": agents}
+
+    disabled_skills = []
+    if enable_git_master != "true":
+        disabled_skills.append("git-master")
+    if enable_playwright != "true":
+        disabled_skills.append("playwright")
+    if enable_frontend_ui_ux != "true":
+        disabled_skills.append("frontend-ui-ux")
+
+    if disabled_skills:
+        config["disabled_skills"] = disabled_skills
 
     git_master = {}
     if commit_footer is not None:
@@ -103,6 +117,9 @@ def main():
     fast_override = os.environ.get("FAST_MODEL")
     commit_footer = os.environ.get("COMMIT_FOOTER")
     include_co_authored_by = os.environ.get("INCLUDE_CO_AUTHORED_BY")
+    enable_git_master = os.environ.get("SKILL_ENABLE_GIT_MASTER")
+    enable_playwright = os.environ.get("SKILL_ENABLE_PLAYWRIGHT")
+    enable_frontend_ui_ux = os.environ.get("SKILL_ENABLE_FRONTEND_UI_UX")
 
     auth_dir = Path.home() / ".local" / "share" / "opencode"
     auth_dir.mkdir(parents=True, exist_ok=True)
@@ -162,6 +179,9 @@ def main():
             fast_override,
             commit_footer,
             include_co_authored_by,
+            enable_git_master,
+            enable_playwright,
+            enable_frontend_ui_ux,
         )
         omo_file.write_text(json.dumps(omo_config, indent=2))
 

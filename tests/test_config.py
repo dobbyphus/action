@@ -109,3 +109,39 @@ class TestGenerateOmoConfig:
     def test_git_master_config_none(self):
         result = generate_omo_config("balanced", None, None, None)
         assert "git_master" not in result
+
+    def test_builtin_skills_default_disabled(self):
+        result = generate_omo_config("balanced", None, None, None)
+        assert result["disabled_skills"] == [
+            "git-master",
+            "playwright",
+            "frontend-ui-ux",
+        ]
+
+    def test_builtin_skills_all_enabled(self):
+        result = generate_omo_config(
+            "balanced",
+            None,
+            None,
+            None,
+            None,
+            None,
+            "true",
+            "true",
+            "true",
+        )
+        assert "disabled_skills" not in result
+
+    def test_builtin_skills_partial_enabled(self):
+        result = generate_omo_config(
+            "balanced",
+            None,
+            None,
+            None,
+            None,
+            None,
+            "true",
+            None,
+            "true",
+        )
+        assert result["disabled_skills"] == ["playwright"]
