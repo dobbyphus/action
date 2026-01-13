@@ -203,6 +203,18 @@ def main():
         merged_config = merge_configs(base_config, override_config)
         config_file.write_text(json.dumps(merged_config, indent=2))
 
+    omo_defaults = generate_omo_config(
+        preset,
+        primary_override,
+        oracle_override,
+        fast_override,
+        commit_footer,
+        include_co_authored_by,
+        enable_git_master,
+        enable_playwright,
+        enable_frontend_ui_ux,
+    )
+
     if omo_config_json:
         try:
             omo_override = parse_json_object(omo_config_json, "OMO_CONFIG_JSON")
@@ -214,21 +226,11 @@ def main():
         except ValueError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
-        merged_omo = merge_configs(omo_base, omo_override)
+        merged_omo = merge_configs(omo_defaults, omo_base)
+        merged_omo = merge_configs(merged_omo, omo_override)
         omo_file.write_text(json.dumps(merged_omo, indent=2))
     else:
-        omo_config = generate_omo_config(
-            preset,
-            primary_override,
-            oracle_override,
-            fast_override,
-            commit_footer,
-            include_co_authored_by,
-            enable_git_master,
-            enable_playwright,
-            enable_frontend_ui_ux,
-        )
-        omo_file.write_text(json.dumps(omo_config, indent=2))
+        omo_file.write_text(json.dumps(omo_defaults, indent=2))
 
     print(f"Generated auth: {auth_file}")
     print(f"Generated opencode config: {config_file}")
