@@ -78,7 +78,7 @@ def build_auth(
     auth_json: str | None,
 ) -> dict:
     auth = generate_auth(anthropic_key, openai_key, gemini_key)
-    if auth_json is None:
+    if auth_json is None or not auth_json.strip():
         return auth
     auth_override = parse_json_object(auth_json, "AUTH_JSON")
     return merge_configs(auth, auth_override)
@@ -152,6 +152,8 @@ def main():
     openai_key = os.environ.get("OPENAI_API_KEY")
     gemini_key = os.environ.get("GEMINI_API_KEY")
     auth_json = os.environ.get("AUTH_JSON")
+    if auth_json is not None and not auth_json.strip():
+        auth_json = None
     config_json = os.environ.get("CONFIG_JSON")
     enabled_providers = os.environ.get("ENABLED_PROVIDERS")
     disabled_providers = os.environ.get("DISABLED_PROVIDERS")
