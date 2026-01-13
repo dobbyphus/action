@@ -82,6 +82,12 @@ inputs:
   config_json:
     description: Full opencode.json content (advanced, overrides all config)
     required: false
+  enabled_providers:
+    description: JSON array of provider IDs to enable
+    required: false
+  disabled_providers:
+    description: JSON array of provider IDs to disable
+    required: false
   omo_config_json:
     description: Full oh-my-opencode.json content (advanced, overrides presets)
     required: false
@@ -467,6 +473,8 @@ runs:
         ACTION_PATH: ${{ github.action_path }}
         AUTH_JSON: ${{ inputs.auth_json }}
         CONFIG_JSON: ${{ inputs.config_json }}
+        ENABLED_PROVIDERS: ${{ inputs.enabled_providers }}
+        DISABLED_PROVIDERS: ${{ inputs.disabled_providers }}
         OMO_CONFIG_JSON: ${{ inputs.omo_config_json }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
