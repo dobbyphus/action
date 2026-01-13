@@ -2,6 +2,7 @@
 
 import json
 import os
+import sys
 from pathlib import Path
 
 PRESETS = {
@@ -79,11 +80,22 @@ def generate_omo_config(
     return config
 
 
+def merge_configs(base: dict, override: dict) -> dict:
+    merged = base.copy()
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = merge_configs(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
 def main():
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
     openai_key = os.environ.get("OPENAI_API_KEY")
     gemini_key = os.environ.get("GEMINI_API_KEY")
     auth_json = os.environ.get("AUTH_JSON")
+    config_json = os.environ.get("CONFIG_JSON")
     omo_config_json = os.environ.get("OMO_CONFIG_JSON")
     preset = os.environ.get("MODEL_PRESET", "balanced")
     primary_override = os.environ.get("PRIMARY_MODEL")
@@ -107,7 +119,38 @@ def main():
 
     config_dir = Path.home() / ".config" / "opencode"
     config_dir.mkdir(parents=True, exist_ok=True)
+    config_file = config_dir / "opencode.json"
     omo_file = config_dir / "oh-my-opencode.json"
+
+    if config_json:
+        base_config = {}
+        if config_file.exists():
+            try:
+                base_config = json.loads(config_file.read_text())
+            except json.JSONDecodeError as exc:
+                print(
+                    f"Error: {config_file} contains invalid JSON: {exc}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            if not isinstance(base_config, dict):
+                print(
+                    f"Error: {config_file} must contain a JSON object",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+        try:
+            override_config = json.loads(config_json)
+        except json.JSONDecodeError as exc:
+            print(f"Error: CONFIG_JSON is invalid JSON: {exc}", file=sys.stderr)
+            sys.exit(1)
+        if not isinstance(override_config, dict):
+            print("Error: CONFIG_JSON must be a JSON object", file=sys.stderr)
+            sys.exit(1)
+
+        merged_config = merge_configs(base_config, override_config)
+        config_file.write_text(json.dumps(merged_config, indent=2))
 
     if omo_config_json:
         omo_file.write_text(omo_config_json)
@@ -123,6 +166,7 @@ def main():
         omo_file.write_text(json.dumps(omo_config, indent=2))
 
     print(f"Generated auth: {auth_file}")
+    print(f"Generated opencode config: {config_file}")
     print(f"Generated config: {omo_file}")
 
 
