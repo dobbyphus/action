@@ -74,6 +74,10 @@ class TestBuildAuth:
         result = build_auth("ant", None, None, "{}")
         assert result == {"anthropic": {"type": "api", "key": "ant"}}
 
+    def test_auth_json_empty_string(self):
+        result = build_auth("ant", None, None, "")
+        assert result == {"anthropic": {"type": "api", "key": "ant"}}
+
 
 class TestParseProviderList:
     def test_valid_list(self):
