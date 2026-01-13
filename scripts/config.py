@@ -26,6 +26,36 @@ PRESETS = {
 FAST_AGENTS = ["explore", "librarian", "document-writer", "multimodal-looker"]
 
 
+def read_json_object(path: Path) -> dict:
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{path} contains invalid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} must contain a JSON object")
+    return data
+
+
+def parse_json_object(value: str, name: str) -> dict:
+    try:
+        data = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{name} is invalid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError(f"{name} must be a JSON object")
+    return data
+
+
+def parse_provider_list(value: str, name: str) -> list[str]:
+    try:
+        data = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{name} is invalid JSON: {exc}") from exc
+    if not isinstance(data, list) or not all(isinstance(item, str) for item in data):
+        raise ValueError(f"{name} must be a JSON array of strings")
+    return data
+
+
 def generate_auth(
     anthropic_key: str | None,
     openai_key: str | None,
@@ -110,6 +140,8 @@ def main():
     gemini_key = os.environ.get("GEMINI_API_KEY")
     auth_json = os.environ.get("AUTH_JSON")
     config_json = os.environ.get("CONFIG_JSON")
+    enabled_providers = os.environ.get("ENABLED_PROVIDERS")
+    disabled_providers = os.environ.get("DISABLED_PROVIDERS")
     omo_config_json = os.environ.get("OMO_CONFIG_JSON")
     preset = os.environ.get("MODEL_PRESET", "balanced")
     primary_override = os.environ.get("PRIMARY_MODEL")
@@ -139,32 +171,34 @@ def main():
     config_file = config_dir / "opencode.json"
     omo_file = config_dir / "oh-my-opencode.json"
 
-    if config_json:
-        base_config = {}
-        if config_file.exists():
-            try:
-                base_config = json.loads(config_file.read_text())
-            except json.JSONDecodeError as exc:
-                print(
-                    f"Error: {config_file} contains invalid JSON: {exc}",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-            if not isinstance(base_config, dict):
-                print(
-                    f"Error: {config_file} must contain a JSON object",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
+    provider_overrides = {}
+    override_config = {}
+    try:
+        if config_json:
+            override_config = parse_json_object(config_json, "CONFIG_JSON")
+        if enabled_providers:
+            provider_overrides["enabled_providers"] = parse_provider_list(
+                enabled_providers,
+                "ENABLED_PROVIDERS",
+            )
+        if disabled_providers:
+            provider_overrides["disabled_providers"] = parse_provider_list(
+                disabled_providers,
+                "DISABLED_PROVIDERS",
+            )
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
+    if config_json or provider_overrides:
         try:
-            override_config = json.loads(config_json)
-        except json.JSONDecodeError as exc:
-            print(f"Error: CONFIG_JSON is invalid JSON: {exc}", file=sys.stderr)
+            base_config = read_json_object(config_file) if config_file.exists() else {}
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
-        if not isinstance(override_config, dict):
-            print("Error: CONFIG_JSON must be a JSON object", file=sys.stderr)
-            sys.exit(1)
+
+        if provider_overrides:
+            override_config = merge_configs(override_config, provider_overrides)
 
         merged_config = merge_configs(base_config, override_config)
         config_file.write_text(json.dumps(merged_config, indent=2))

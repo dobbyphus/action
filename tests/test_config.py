@@ -1,11 +1,34 @@
 #!/usr/bin/env python3
 
-import sys
+import importlib.util
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from config import generate_auth, generate_omo_config, PRESETS, FAST_AGENTS
+def load_config_module():
+    config_path = Path(__file__).parent.parent / "scripts" / "config.py"
+    spec = importlib.util.spec_from_file_location("config", config_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Unable to load config module")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+config = load_config_module()
+FAST_AGENTS = config.FAST_AGENTS
+PRESETS = config.PRESETS
+generate_auth = config.generate_auth
+generate_omo_config = config.generate_omo_config
+parse_provider_list = config.parse_provider_list
+
+
+def assert_value_error(expected: str, func, *args):
+    try:
+        func(*args)
+    except ValueError as exc:
+        assert expected in str(exc)
+        return
+    raise AssertionError("Expected ValueError")
 
 
 class TestGenerateAuth:
@@ -31,6 +54,36 @@ class TestGenerateAuth:
             "openai": {"apiKey": "oai"},
             "google": {"apiKey": "gem"},
         }
+
+
+class TestParseProviderList:
+    def test_valid_list(self):
+        result = parse_provider_list('["anthropic", "openai"]', "ENABLED_PROVIDERS")
+        assert result == ["anthropic", "openai"]
+
+    def test_invalid_json(self):
+        assert_value_error(
+            "ENABLED_PROVIDERS is invalid JSON",
+            parse_provider_list,
+            "not-json",
+            "ENABLED_PROVIDERS",
+        )
+
+    def test_invalid_type(self):
+        assert_value_error(
+            "ENABLED_PROVIDERS must be a JSON array of strings",
+            parse_provider_list,
+            '{"anthropic": true}',
+            "ENABLED_PROVIDERS",
+        )
+
+    def test_invalid_items(self):
+        assert_value_error(
+            "ENABLED_PROVIDERS must be a JSON array of strings",
+            parse_provider_list,
+            "[1]",
+            "ENABLED_PROVIDERS",
+        )
 
 
 class TestGenerateOmoConfig:
