@@ -28,6 +28,22 @@ inputs:
   gemini_api_key:
     description: Google Gemini API key
     required: false
+  provider_anthropic:
+    description: Anthropic provider setting (no/yes/max20)
+    required: false
+    default: max20
+  provider_openai:
+    description: OpenAI provider setting (no/yes)
+    required: false
+    default: "no"
+  provider_google:
+    description: Google provider setting (no/yes)
+    required: false
+    default: "no"
+  provider_copilot:
+    description: GitHub Copilot provider setting (no/yes)
+    required: false
+    default: "no"
 
   anthropic_base_url:
     description: Custom Anthropic API base URL (for proxies)
@@ -465,6 +481,10 @@ runs:
       env:
         OPENCODE_VERSION: ${{ steps.version.outputs.opencode }}
         OH_MY_OPENCODE_VERSION: ${{ steps.version.outputs.oh_my_opencode }}
+        PROVIDER_ANTHROPIC: ${{ inputs.provider_anthropic }}
+        PROVIDER_OPENAI: ${{ inputs.provider_openai }}
+        PROVIDER_GOOGLE: ${{ inputs.provider_google }}
+        PROVIDER_COPILOT: ${{ inputs.provider_copilot }}
 
     - name: Configure
       shell: bash
