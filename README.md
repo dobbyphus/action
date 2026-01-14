@@ -77,6 +77,10 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | `anthropic_api_key` | - | Anthropic API key |
 | `openai_api_key` | - | OpenAI API key |
 | `gemini_api_key` | - | Google Gemini API key |
+| `provider_anthropic` | `max20` | Anthropic provider setting (no/yes/max20) |
+| `provider_openai` | `no` | OpenAI provider setting (no/yes) |
+| `provider_google` | `no` | Google provider setting (no/yes) |
+| `provider_copilot` | `no` | GitHub Copilot provider setting (no/yes) |
 | `anthropic_base_url` | - | Custom Anthropic API base URL (for proxies) |
 | `openai_base_url` | - | Custom OpenAI API base URL (for proxies) |
 | `model_preset` | `balanced` | Preset: `balanced`, `fast`, `powerful` |
