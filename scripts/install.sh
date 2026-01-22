@@ -17,6 +17,6 @@ echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
 bunx "oh-my-opencode@${OH_MY_OPENCODE_VERSION:-latest}" install \
   --no-tui \
   --claude="${PROVIDER_ANTHROPIC:-max20}" \
-  --chatgpt="${PROVIDER_OPENAI:-no}" \
+  --openai="${PROVIDER_OPENAI:-no}" \
   --gemini="${PROVIDER_GOOGLE:-no}" \
   --copilot="${PROVIDER_COPILOT:-no}"
