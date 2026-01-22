@@ -59,6 +59,7 @@ inputs:
   primary_model:
     description: Override primary agent model
     required: false
+    default: anthropic/claude-opus-4-5
   oracle_model:
     description: Override oracle agent model
     required: false

@@ -208,18 +208,22 @@ def main():
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    if config_json or provider_overrides:
-        try:
-            base_config = read_json_object(config_file) if config_file.exists() else {}
-        except ValueError as exc:
-            print(f"Error: {exc}", file=sys.stderr)
-            sys.exit(1)
+    try:
+        base_config = read_json_object(config_file) if config_file.exists() else {}
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
-        if provider_overrides:
-            override_config = merge_configs(override_config, provider_overrides)
+    if provider_overrides:
+        override_config = merge_configs(override_config, provider_overrides)
 
-        merged_config = merge_configs(base_config, override_config)
-        config_file.write_text(json.dumps(merged_config, indent=2))
+    preset_models = PRESETS.get(preset, PRESETS["balanced"])
+    default_model = primary_override or preset_models["primary"]
+    default_config = {"model": default_model}
+
+    merged_config = merge_configs(base_config, default_config)
+    merged_config = merge_configs(merged_config, override_config)
+    config_file.write_text(json.dumps(merged_config, indent=2))
 
     omo_defaults = generate_omo_config(
         preset,
