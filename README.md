@@ -84,7 +84,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | `anthropic_base_url` | - | Custom Anthropic API base URL (for proxies) |
 | `openai_base_url` | - | Custom OpenAI API base URL (for proxies) |
 | `model_preset` | `balanced` | Preset: `balanced`, `fast`, `powerful` |
-| `primary_model` | - | Override primary agent model |
+| `primary_model` | `anthropic/claude-opus-4-5` | Override primary agent model |
 | `oracle_model` | - | Override oracle agent model |
 | `fast_model` | - | Override fast agents model |
 | `mode` | `agent` | Prompt mode (maps to `{prompt_path}/{mode}.md`) |
