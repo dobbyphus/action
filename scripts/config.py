@@ -190,22 +190,23 @@ def main():
         enable_frontend_ui_ux,
     )
 
+    try:
+        omo_base = read_json_object(omo_file) if omo_file.exists() else {}
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    merged_omo = merge_configs(omo_base, omo_defaults)
+
     if omo_config_json:
         try:
             omo_override = parse_json_object(omo_config_json, "OMO_CONFIG_JSON")
         except ValueError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
-        try:
-            omo_base = read_json_object(omo_file) if omo_file.exists() else {}
-        except ValueError as exc:
-            print(f"Error: {exc}", file=sys.stderr)
-            sys.exit(1)
-        merged_omo = merge_configs(omo_defaults, omo_base)
         merged_omo = merge_configs(merged_omo, omo_override)
-        omo_file.write_text(json.dumps(merged_omo, indent=2))
-    else:
-        omo_file.write_text(json.dumps(omo_defaults, indent=2))
+
+    omo_file.write_text(json.dumps(merged_omo, indent=2))
 
     print(f"Generated auth: {auth_file}")
     print(f"Generated opencode config: {config_file}")
