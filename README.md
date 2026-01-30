@@ -83,10 +83,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | `provider_copilot` | `no` | GitHub Copilot provider setting (no/yes) |
 | `anthropic_base_url` | - | Custom Anthropic API base URL (for proxies) |
 | `openai_base_url` | - | Custom OpenAI API base URL (for proxies) |
-| `model_preset` | `balanced` | Preset: `balanced`, `fast`, `powerful` |
-| `primary_model` | `anthropic/claude-opus-4-5` | Override primary agent model |
-| `oracle_model` | - | Override oracle agent model |
-| `fast_model` | - | Override fast agents model |
+| `primary_model` | - | Override opencode.json model |
 | `mode` | `agent` | Prompt mode (maps to `{prompt_path}/{mode}.md`) |
 | `prompt` | - | Direct prompt text (alternative to mode) |
 | `prompt_path` | `.github/prompts` | Path to prompts directory |
@@ -169,16 +166,6 @@ Set these in Settings → Secrets and variables → Variables:
 |----------|---------|-------------|
 | `BOT_NAME` | `ai-agent` | Bot mention trigger and label prefix |
 | `BOT_LOGIN` | `github-actions[bot]` | Bot login to prevent self-triggering |
-
-### Model Presets
-
-| Preset | Primary | Oracle | Fast |
-|--------|---------|--------|------|
-| `balanced` | claude-sonnet-4-5 | claude-sonnet-4-5 | claude-haiku-4-5 |
-| `fast` | claude-haiku-4-5 | claude-haiku-4-5 | claude-haiku-4-5 |
-| `powerful` | claude-opus-4-5 | gpt-5.2 | claude-sonnet-4-5 |
-
-Override individual models with `primary_model`, `oracle_model`, `fast_model` inputs.
 
 ## Authentication
 

@@ -15,8 +15,6 @@ def load_config_module():
 
 
 config = load_config_module()
-FAST_AGENTS = config.FAST_AGENTS
-PRESETS = config.PRESETS
 build_auth = config.build_auth
 generate_auth = config.generate_auth
 generate_omo_config = config.generate_omo_config
@@ -110,84 +108,39 @@ class TestParseProviderList:
 
 
 class TestGenerateOmoConfig:
-    def test_balanced_preset(self):
-        result = generate_omo_config("balanced", None, None, None)
-        agents = result["agents"]
-        assert agents["Sisyphus"]["model"] == PRESETS["balanced"]["primary"]
-        assert agents["oracle"]["model"] == PRESETS["balanced"]["oracle"]
-        for agent in FAST_AGENTS:
-            assert agents[agent]["model"] == PRESETS["balanced"]["fast"]
-
-    def test_fast_preset(self):
-        result = generate_omo_config("fast", None, None, None)
-        agents = result["agents"]
-        assert agents["Sisyphus"]["model"] == PRESETS["fast"]["primary"]
-
-    def test_powerful_preset(self):
-        result = generate_omo_config("powerful", None, None, None)
-        agents = result["agents"]
-        assert agents["Sisyphus"]["model"] == PRESETS["powerful"]["primary"]
-        assert agents["oracle"]["model"] == PRESETS["powerful"]["oracle"]
-
-    def test_unknown_preset_defaults_to_balanced(self):
-        result = generate_omo_config("nonexistent", None, None, None)
-        agents = result["agents"]
-        assert agents["Sisyphus"]["model"] == PRESETS["balanced"]["primary"]
-
-    def test_primary_override(self):
-        result = generate_omo_config("balanced", "custom/model", None, None)
-        assert result["agents"]["Sisyphus"]["model"] == "custom/model"
-
-    def test_oracle_override(self):
-        result = generate_omo_config("balanced", None, "custom/oracle", None)
-        assert result["agents"]["oracle"]["model"] == "custom/oracle"
-
-    def test_fast_override(self):
-        result = generate_omo_config("balanced", None, None, "custom/fast")
-        for agent in FAST_AGENTS:
-            assert result["agents"][agent]["model"] == "custom/fast"
-
-    def test_all_overrides(self):
-        result = generate_omo_config("balanced", "p", "o", "f")
-        agents = result["agents"]
-        assert agents["Sisyphus"]["model"] == "p"
-        assert agents["oracle"]["model"] == "o"
-        for agent in FAST_AGENTS:
-            assert agents[agent]["model"] == "f"
-
     def test_git_master_config(self):
-        result = generate_omo_config("balanced", None, None, None, "true", "true")
+        result = generate_omo_config("true", "true")
         assert result["git_master"] == {
             "commit_footer": True,
             "include_co_authored_by": True,
         }
 
     def test_git_master_config_false(self):
-        result = generate_omo_config("balanced", None, None, None, "false", "false")
+        result = generate_omo_config("false", "false")
         assert result["git_master"] == {
             "commit_footer": False,
             "include_co_authored_by": False,
         }
 
     def test_git_master_config_mixed(self):
-        result = generate_omo_config("balanced", None, None, None, "true", "false")
+        result = generate_omo_config("true", "false")
         assert result["git_master"] == {
             "commit_footer": True,
             "include_co_authored_by": False,
         }
 
     def test_git_master_config_partial(self):
-        result = generate_omo_config("balanced", None, None, None, None, "true")
+        result = generate_omo_config(None, "true")
         assert result["git_master"] == {
             "include_co_authored_by": True,
         }
 
     def test_git_master_config_none(self):
-        result = generate_omo_config("balanced", None, None, None)
+        result = generate_omo_config()
         assert "git_master" not in result
 
     def test_builtin_skills_default_disabled(self):
-        result = generate_omo_config("balanced", None, None, None)
+        result = generate_omo_config()
         assert result["disabled_skills"] == [
             "git-master",
             "playwright",
@@ -196,10 +149,6 @@ class TestGenerateOmoConfig:
 
     def test_builtin_skills_all_enabled(self):
         result = generate_omo_config(
-            "balanced",
-            None,
-            None,
-            None,
             None,
             None,
             "true",
@@ -210,10 +159,6 @@ class TestGenerateOmoConfig:
 
     def test_builtin_skills_partial_enabled(self):
         result = generate_omo_config(
-            "balanced",
-            None,
-            None,
-            None,
             None,
             None,
             "true",

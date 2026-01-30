@@ -52,19 +52,8 @@ inputs:
     description: Custom OpenAI API base URL (for proxies)
     required: false
 
-  model_preset:
-    description: Model preset (balanced, fast, powerful)
-    required: false
-    default: balanced
   primary_model:
-    description: Override primary agent model
-    required: false
-    default: anthropic/claude-opus-4-5
-  oracle_model:
-    description: Override oracle agent model
-    required: false
-  fast_model:
-    description: Override fast agents model (explore, librarian, etc)
+    description: Override opencode.json model
     required: false
 
   mode:
@@ -502,10 +491,7 @@ runs:
         GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
         ANTHROPIC_BASE_URL: ${{ inputs.anthropic_base_url }}
         OPENAI_BASE_URL: ${{ inputs.openai_base_url }}
-        MODEL_PRESET: ${{ inputs.model_preset }}
         PRIMARY_MODEL: ${{ inputs.primary_model }}
-        ORACLE_MODEL: ${{ inputs.oracle_model }}
-        FAST_MODEL: ${{ inputs.fast_model }}
         COMMIT_FOOTER: ${{ inputs.commit_footer }}
         INCLUDE_CO_AUTHORED_BY: ${{ inputs.include_co_authored_by }}
         SKILL_ENABLE_GIT_MASTER: ${{ inputs.skill_enable_git_master }}
