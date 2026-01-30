@@ -5,26 +5,6 @@ import os
 import sys
 from pathlib import Path
 
-PRESETS = {
-    "balanced": {
-        "primary": "anthropic/claude-sonnet-4-5",
-        "oracle": "anthropic/claude-sonnet-4-5",
-        "fast": "anthropic/claude-haiku-4-5",
-    },
-    "fast": {
-        "primary": "anthropic/claude-haiku-4-5",
-        "oracle": "anthropic/claude-haiku-4-5",
-        "fast": "anthropic/claude-haiku-4-5",
-    },
-    "powerful": {
-        "primary": "anthropic/claude-opus-4-5",
-        "oracle": "openai/gpt-5.2",
-        "fast": "anthropic/claude-sonnet-4-5",
-    },
-}
-
-FAST_AGENTS = ["explore", "librarian", "document-writer", "multimodal-looker"]
-
 
 def read_json_object(path: Path) -> dict:
     try:
@@ -85,34 +65,13 @@ def build_auth(
 
 
 def generate_omo_config(
-    preset: str,
-    primary_override: str | None,
-    oracle_override: str | None,
-    fast_override: str | None,
     commit_footer: str | None = None,
     include_co_authored_by: str | None = None,
     enable_git_master: str | None = None,
     enable_playwright: str | None = None,
     enable_frontend_ui_ux: str | None = None,
 ) -> dict:
-    models = PRESETS.get(preset, PRESETS["balanced"]).copy()
-
-    if primary_override:
-        models["primary"] = primary_override
-    if oracle_override:
-        models["oracle"] = oracle_override
-    if fast_override:
-        models["fast"] = fast_override
-
-    agents = {
-        "Sisyphus": {"model": models["primary"]},
-        "oracle": {"model": models["oracle"]},
-    }
-
-    for agent in FAST_AGENTS:
-        agents[agent] = {"model": models["fast"]}
-
-    config: dict[str, object] = {"agents": agents}
+    config: dict[str, object] = {}
 
     disabled_skills = []
     if enable_git_master != "true":
@@ -158,10 +117,9 @@ def main():
     enabled_providers = os.environ.get("ENABLED_PROVIDERS")
     disabled_providers = os.environ.get("DISABLED_PROVIDERS")
     omo_config_json = os.environ.get("OMO_CONFIG_JSON")
-    preset = os.environ.get("MODEL_PRESET", "balanced")
     primary_override = os.environ.get("PRIMARY_MODEL")
-    oracle_override = os.environ.get("ORACLE_MODEL")
-    fast_override = os.environ.get("FAST_MODEL")
+    if primary_override is not None and not primary_override.strip():
+        primary_override = None
     commit_footer = os.environ.get("COMMIT_FOOTER")
     include_co_authored_by = os.environ.get("INCLUDE_CO_AUTHORED_BY")
     enable_git_master = os.environ.get("SKILL_ENABLE_GIT_MASTER")
@@ -217,19 +175,14 @@ def main():
     if provider_overrides:
         override_config = merge_configs(override_config, provider_overrides)
 
-    preset_models = PRESETS.get(preset, PRESETS["balanced"])
-    default_model = primary_override or preset_models["primary"]
-    default_config = {"model": default_model}
-
-    merged_config = merge_configs(base_config, default_config)
-    merged_config = merge_configs(merged_config, override_config)
+    merged_config = base_config
+    if primary_override:
+        merged_config = merge_configs(merged_config, {"model": primary_override})
+    if override_config:
+        merged_config = merge_configs(merged_config, override_config)
     config_file.write_text(json.dumps(merged_config, indent=2))
 
     omo_defaults = generate_omo_config(
-        preset,
-        primary_override,
-        oracle_override,
-        fast_override,
         commit_footer,
         include_co_authored_by,
         enable_git_master,
