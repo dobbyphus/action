@@ -283,6 +283,8 @@ runs:
         INPUT_PROMPT_VARS: ${{ inputs.prompt_vars }}
         THREADS_JSON: ${{ steps.threads.outputs.json }}
         THREADS_COUNT: ${{ steps.threads.outputs.count }}
+        COMMENT: ${{ steps.context.outputs.comment }}
+        PR_TITLE: ${{ steps.context.outputs.pr_title }}
       run: |
         CONTEXT_TYPE="${{ steps.context.outputs.context_type }}"
         DIFF_PATH="${{ steps.context.outputs.diff_path }}"
@@ -326,14 +328,14 @@ runs:
           --arg author_mention "$AUTHOR_MENTION" \
           --arg bot_name "$INPUT_BOT_NAME" \
           --arg mention_users "$INPUT_MENTION_USERS" \
-          --arg comment "${{ steps.context.outputs.comment }}" \
+          --arg comment "$COMMENT" \
           --arg comment_id "${{ steps.context.outputs.comment_id }}" \
           --arg context_type "$CONTEXT_TYPE" \
           --arg number "${{ steps.context.outputs.number }}" \
           --arg repository "${{ github.repository }}" \
           --arg default_branch "${{ github.event.repository.default_branch }}" \
           --arg pr_number "${{ steps.context.outputs.number }}" \
-          --arg pr_title "${{ steps.context.outputs.pr_title }}" \
+          --arg pr_title "$PR_TITLE" \
           --arg pr_author "$PR_AUTHOR" \
           --arg pr_author_mention "$PR_AUTHOR_MENTION" \
           --arg requested_by "$REQUESTED_BY" \
