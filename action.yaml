@@ -454,14 +454,14 @@ runs:
         GH_TOKEN: ${{ inputs.github_token }}
 
     - name: Cache opencode
-      uses: actions/cache@v4
+      uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
       with:
         path: ~/.opencode/bin
         # yamllint disable-line rule:line-length
         key: opencode-${{ runner.os }}-${{ runner.arch }}-${{ steps.version.outputs.opencode }}
 
     - name: Cache bun
-      uses: actions/cache@v4
+      uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
       with:
         path: ~/.bun/install/cache
         # yamllint disable-line rule:line-length
