@@ -19,6 +19,9 @@ build_auth = config.build_auth
 generate_auth = config.generate_auth
 generate_omo_config = config.generate_omo_config
 parse_provider_list = config.parse_provider_list
+derive_provider_lists = config.derive_provider_lists
+provider_enabled = config.provider_enabled
+build_provider_overrides = config.build_provider_overrides
 
 
 def assert_value_error(expected: str, func, *args):
@@ -105,6 +108,126 @@ class TestParseProviderList:
             "[1]",
             "ENABLED_PROVIDERS",
         )
+
+
+class TestProviderSelectionDerivation:
+    def test_provider_enabled_treats_no_as_disabled(self):
+        assert provider_enabled("yes") is True
+        assert provider_enabled("max20") is True
+        assert provider_enabled("no") is False
+        assert provider_enabled(None) is False
+
+    def test_derive_provider_lists_for_copilot_only(self):
+        enabled, disabled = derive_provider_lists(
+            {
+                "provider_anthropic": "no",
+                "provider_openai": "no",
+                "provider_google": "no",
+                "provider_copilot": "yes",
+                "provider_opencode_zen": "no",
+                "provider_zai_coding_plan": "no",
+                "provider_kimi_for_coding": "no",
+                "provider_opencode_go": "no",
+            }
+        )
+
+        assert enabled == ["github-copilot"]
+        assert disabled == [
+            "anthropic",
+            "openai",
+            "google",
+            "opencode",
+            "zai-coding-plan",
+            "kimi-for-coding",
+            "opencode-go",
+        ]
+
+    def test_derive_provider_lists_maps_opencode_variants(self):
+        enabled, disabled = derive_provider_lists(
+            {
+                "provider_anthropic": "no",
+                "provider_openai": "no",
+                "provider_google": "no",
+                "provider_copilot": "no",
+                "provider_opencode_zen": "yes",
+                "provider_zai_coding_plan": "yes",
+                "provider_kimi_for_coding": "yes",
+                "provider_opencode_go": "yes",
+            }
+        )
+
+        assert enabled == [
+            "opencode",
+            "zai-coding-plan",
+            "kimi-for-coding",
+            "opencode-go",
+        ]
+        assert disabled == ["anthropic", "openai", "google", "github-copilot"]
+
+    def test_build_provider_overrides_derives_both_lists(self):
+        result = build_provider_overrides(
+            None,
+            None,
+            {
+                "provider_anthropic": "no",
+                "provider_openai": "no",
+                "provider_google": "no",
+                "provider_copilot": "yes",
+                "provider_opencode_zen": "no",
+                "provider_zai_coding_plan": "no",
+                "provider_kimi_for_coding": "no",
+                "provider_opencode_go": "no",
+            },
+        )
+
+        assert result == {
+            "enabled_providers": ["github-copilot"],
+            "disabled_providers": [
+                "anthropic",
+                "openai",
+                "google",
+                "opencode",
+                "zai-coding-plan",
+                "kimi-for-coding",
+                "opencode-go",
+            ],
+        }
+
+    def test_build_provider_overrides_keeps_explicit_enabled_only(self):
+        result = build_provider_overrides(
+            '["github-copilot"]',
+            None,
+            {
+                "provider_anthropic": "max20",
+                "provider_openai": "no",
+                "provider_google": "no",
+                "provider_copilot": "yes",
+                "provider_opencode_zen": "no",
+                "provider_zai_coding_plan": "no",
+                "provider_kimi_for_coding": "no",
+                "provider_opencode_go": "no",
+            },
+        )
+
+        assert result == {"enabled_providers": ["github-copilot"]}
+
+    def test_build_provider_overrides_keeps_explicit_disabled_only(self):
+        result = build_provider_overrides(
+            None,
+            '["anthropic"]',
+            {
+                "provider_anthropic": "no",
+                "provider_openai": "no",
+                "provider_google": "no",
+                "provider_copilot": "yes",
+                "provider_opencode_zen": "no",
+                "provider_zai_coding_plan": "no",
+                "provider_kimi_for_coding": "no",
+                "provider_opencode_go": "no",
+            },
+        )
+
+        assert result == {"disabled_providers": ["anthropic"]}
 
 
 class TestGenerateOmoConfig:

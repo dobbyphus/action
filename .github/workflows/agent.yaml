@@ -101,5 +101,7 @@ jobs:
           auth_json: ${{ secrets.COPILOT_AUTH_JSON }}
           provider_anthropic: "no"
           provider_copilot: "yes"
+          enabled_providers: '["github-copilot"]'
+          disabled_providers: '["anthropic","openai","google","opencode","zai-coding-plan","kimi-for-coding","opencode-go"]'
           github_token: ${{ steps.app-token.outputs.token }}
           mode: ${{ steps.mode.outputs.value }}
