@@ -96,6 +96,7 @@ If a request contains BOTH research AND implementation language (e.g., "investig
 ### Orchestration Guidelines (REQUIRED)
 
 - Parallelize exploration (background agents + direct tools) when context is unclear.
+- Exception: in GitHub Actions one-shot runs, do not finish with pending background tasks. Prefer synchronous work or collect background results before any final comment.
 - Synthesize findings before implementing. Re-read the user request before reporting.
 - If a step fails twice, stop. Summarize failure signals, list hypotheses, pick the next diagnostic, and escalate strategy.
 - If blocked by missing inputs, state the blocker and required inputs in one sentence.

@@ -1,12 +1,21 @@
 #!/usr/bin/env python3
 
-import sys
+import importlib.util
 import tempfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from prompt import find_prompt_file
+def load_prompt_module():
+    prompt_path = Path(__file__).parent.parent / "scripts" / "prompt.py"
+    spec = importlib.util.spec_from_file_location("prompt", prompt_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Unable to load prompt module")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+find_prompt_file = load_prompt_module().find_prompt_file
 
 
 class TestFindPromptFile:
@@ -62,3 +71,28 @@ class TestFindPromptFile:
                 tmppath / "action",
             )
             assert result == action_dir / "agent.md"
+
+
+class TestGitHubActionPromptGuidance:
+    def test_github_env_warns_about_one_shot_background_tasks(self):
+        github_env = (
+            Path(__file__).parent.parent / "prompts" / "base" / "github_env.md"
+        ).read_text()
+
+        assert "one-shot, non-interactive `opencode run` mode" in github_env
+        assert (
+            "NEVER end a response while background tasks are still pending"
+            in github_env
+        )
+        assert (
+            "Only launch background tasks if you can collect their results"
+            in github_env
+        )
+
+    def test_agent_prompt_mentions_github_actions_exception(self):
+        agent_prompt = (
+            Path(__file__).parent.parent / "prompts" / "agent.md"
+        ).read_text()
+
+        assert "Exception: in GitHub Actions one-shot runs" in agent_prompt
+        assert "do not finish with pending background tasks" in agent_prompt
