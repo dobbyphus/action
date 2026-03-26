@@ -44,6 +44,22 @@ inputs:
     description: GitHub Copilot provider setting (no/yes)
     required: false
     default: "no"
+  provider_opencode_zen:
+    description: OpenCode Zen provider setting (no/yes)
+    required: false
+    default: "no"
+  provider_zai_coding_plan:
+    description: Z.ai Coding Plan provider setting (no/yes)
+    required: false
+    default: "no"
+  provider_kimi_for_coding:
+    description: Kimi for Coding provider setting (no/yes)
+    required: false
+    default: "no"
+  provider_opencode_go:
+    description: OpenCode Go provider setting (no/yes)
+    required: false
+    default: "no"
 
   anthropic_base_url:
     description: Custom Anthropic API base URL (for proxies)
@@ -477,6 +493,10 @@ runs:
         PROVIDER_OPENAI: ${{ inputs.provider_openai }}
         PROVIDER_GOOGLE: ${{ inputs.provider_google }}
         PROVIDER_COPILOT: ${{ inputs.provider_copilot }}
+        PROVIDER_OPENCODE_ZEN: ${{ inputs.provider_opencode_zen }}
+        PROVIDER_ZAI_CODING_PLAN: ${{ inputs.provider_zai_coding_plan }}
+        PROVIDER_KIMI_FOR_CODING: ${{ inputs.provider_kimi_for_coding }}
+        PROVIDER_OPENCODE_GO: ${{ inputs.provider_opencode_go }}
 
     - name: Configure
       shell: bash
