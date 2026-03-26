@@ -36,6 +36,67 @@ def parse_provider_list(value: str, name: str) -> list[str]:
     return data
 
 
+def provider_enabled(value: str | None) -> bool:
+    return value is not None and value.strip().lower() != "no"
+
+
+def derive_provider_lists(
+    provider_settings: dict[str, str | None],
+) -> tuple[list[str], list[str]]:
+    provider_map = {
+        "provider_anthropic": "anthropic",
+        "provider_openai": "openai",
+        "provider_google": "google",
+        "provider_copilot": "github-copilot",
+        "provider_opencode_zen": "opencode",
+        "provider_zai_coding_plan": "zai-coding-plan",
+        "provider_kimi_for_coding": "kimi-for-coding",
+        "provider_opencode_go": "opencode-go",
+    }
+
+    enabled = []
+    disabled = []
+
+    for input_name, provider_id in provider_map.items():
+        value = provider_settings.get(input_name)
+        if provider_enabled(value):
+            enabled.append(provider_id)
+        else:
+            disabled.append(provider_id)
+
+    return enabled, disabled
+
+
+def build_provider_overrides(
+    enabled_providers: str | None,
+    disabled_providers: str | None,
+    provider_settings: dict[str, str | None],
+) -> dict:
+    provider_overrides = {}
+
+    if enabled_providers:
+        provider_overrides["enabled_providers"] = parse_provider_list(
+            enabled_providers,
+            "ENABLED_PROVIDERS",
+        )
+
+    if disabled_providers:
+        provider_overrides["disabled_providers"] = parse_provider_list(
+            disabled_providers,
+            "DISABLED_PROVIDERS",
+        )
+
+    if provider_overrides:
+        return provider_overrides
+
+    if any(value is not None for value in provider_settings.values()):
+        inferred_enabled, inferred_disabled = derive_provider_lists(provider_settings)
+        provider_overrides["enabled_providers"] = inferred_enabled
+        provider_overrides["disabled_providers"] = inferred_disabled
+
+    return provider_overrides
+
+
 def generate_auth(
     anthropic_key: str | None,
     openai_key: str | None,
@@ -116,6 +177,16 @@ def main():
     config_json = os.environ.get("CONFIG_JSON")
     enabled_providers = os.environ.get("ENABLED_PROVIDERS")
     disabled_providers = os.environ.get("DISABLED_PROVIDERS")
+    provider_settings = {
+        "provider_anthropic": os.environ.get("PROVIDER_ANTHROPIC"),
+        "provider_openai": os.environ.get("PROVIDER_OPENAI"),
+        "provider_google": os.environ.get("PROVIDER_GOOGLE"),
+        "provider_copilot": os.environ.get("PROVIDER_COPILOT"),
+        "provider_opencode_zen": os.environ.get("PROVIDER_OPENCODE_ZEN"),
+        "provider_zai_coding_plan": os.environ.get("PROVIDER_ZAI_CODING_PLAN"),
+        "provider_kimi_for_coding": os.environ.get("PROVIDER_KIMI_FOR_CODING"),
+        "provider_opencode_go": os.environ.get("PROVIDER_OPENCODE_GO"),
+    }
     omo_config_json = os.environ.get("OMO_CONFIG_JSON")
     primary_override = os.environ.get("PRIMARY_MODEL")
     if primary_override is not None and not primary_override.strip():
@@ -147,21 +218,15 @@ def main():
     config_file = config_dir / "opencode.json"
     omo_file = config_dir / "oh-my-opencode.json"
 
-    provider_overrides = {}
     override_config = {}
     try:
         if config_json:
             override_config = parse_json_object(config_json, "CONFIG_JSON")
-        if enabled_providers:
-            provider_overrides["enabled_providers"] = parse_provider_list(
-                enabled_providers,
-                "ENABLED_PROVIDERS",
-            )
-        if disabled_providers:
-            provider_overrides["disabled_providers"] = parse_provider_list(
-                disabled_providers,
-                "DISABLED_PROVIDERS",
-            )
+        provider_overrides = build_provider_overrides(
+            enabled_providers,
+            disabled_providers,
+            provider_settings,
+        )
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)

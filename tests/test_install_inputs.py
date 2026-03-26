@@ -29,6 +29,26 @@ class TestProviderInstallInputs:
         )
         assert "PROVIDER_OPENCODE_GO: ${{ inputs.provider_opencode_go }}" in action_text
 
+    def test_configure_receives_provider_inputs(self):
+        action_text = ACTION_YAML.read_text()
+
+        assert "PROVIDER_ANTHROPIC: ${{ inputs.provider_anthropic }}" in action_text
+        assert "PROVIDER_OPENAI: ${{ inputs.provider_openai }}" in action_text
+        assert "PROVIDER_GOOGLE: ${{ inputs.provider_google }}" in action_text
+        assert "PROVIDER_COPILOT: ${{ inputs.provider_copilot }}" in action_text
+        assert (
+            "PROVIDER_OPENCODE_ZEN: ${{ inputs.provider_opencode_zen }}" in action_text
+        )
+        assert (
+            "PROVIDER_ZAI_CODING_PLAN: ${{ inputs.provider_zai_coding_plan }}"
+            in action_text
+        )
+        assert (
+            "PROVIDER_KIMI_FOR_CODING: ${{ inputs.provider_kimi_for_coding }}"
+            in action_text
+        )
+        assert "PROVIDER_OPENCODE_GO: ${{ inputs.provider_opencode_go }}" in action_text
+
     def test_install_passes_extended_provider_flags(self):
         install_text = INSTALL_SCRIPT.read_text()
 
