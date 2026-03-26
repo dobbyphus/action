@@ -19,4 +19,8 @@ bunx "oh-my-opencode@${OH_MY_OPENCODE_VERSION:-latest}" install \
   --claude="${PROVIDER_ANTHROPIC:-max20}" \
   --openai="${PROVIDER_OPENAI:-no}" \
   --gemini="${PROVIDER_GOOGLE:-no}" \
-  --copilot="${PROVIDER_COPILOT:-no}"
+  --copilot="${PROVIDER_COPILOT:-no}" \
+  --opencode-zen="${PROVIDER_OPENCODE_ZEN:-no}" \
+  --zai-coding-plan="${PROVIDER_ZAI_CODING_PLAN:-no}" \
+  --kimi-for-coding="${PROVIDER_KIMI_FOR_CODING:-no}" \
+  --opencode-go="${PROVIDER_OPENCODE_GO:-no}"

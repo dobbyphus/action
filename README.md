@@ -81,6 +81,10 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | `provider_openai` | `no` | OpenAI provider setting (no/yes) |
 | `provider_google` | `no` | Google provider setting (no/yes) |
 | `provider_copilot` | `no` | GitHub Copilot provider setting (no/yes) |
+| `provider_opencode_zen` | `no` | OpenCode Zen provider setting (no/yes) |
+| `provider_zai_coding_plan` | `no` | Z.ai Coding Plan provider setting (no/yes) |
+| `provider_kimi_for_coding` | `no` | Kimi for Coding provider setting (no/yes) |
+| `provider_opencode_go` | `no` | OpenCode Go provider setting (no/yes) |
 | `anthropic_base_url` | - | Custom Anthropic API base URL (for proxies) |
 | `openai_base_url` | - | Custom OpenAI API base URL (for proxies) |
 | `primary_model` | - | Override opencode.json model |
