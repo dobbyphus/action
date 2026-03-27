@@ -53,6 +53,13 @@ class TestProviderInstallInputs:
         )
         assert "PROVIDER_OPENCODE_GO: ${{ inputs.provider_opencode_go }}" in action_text
 
+    def test_action_exposes_opencode_print_logs_input(self):
+        action_text = ACTION_YAML.read_text()
+
+        assert "opencode_print_logs:" in action_text
+        assert "Include raw opencode runtime logs" in action_text
+        assert "OPENCODE_PRINT_LOGS: ${{ inputs.opencode_print_logs }}" in action_text
+
     def test_install_passes_extended_provider_flags(self):
         install_text = INSTALL_SCRIPT.read_text()
 

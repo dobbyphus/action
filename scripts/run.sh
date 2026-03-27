@@ -49,12 +49,17 @@ fi
 
 FINAL=$("$SUBSTITUTE_SCRIPT" "$VARS" <<< "$TEMPLATE")
 FORMAT_SCRIPT="$ACTION_PATH/scripts/format_output.py"
+PRINT_LOG_ARGS=()
+
+if [[ "${OPENCODE_PRINT_LOGS:-false}" == "true" ]]; then
+  PRINT_LOG_ARGS+=(--print-logs)
+fi
 
 set +e
 if [[ "${FORMAT_OUTPUT:-true}" == "true" ]] && [[ "${GITHUB_ACTIONS:-}" == "true" ]] && [[ -f "$FORMAT_SCRIPT" ]]; then
   python3 "$FORMAT_SCRIPT" "$FINAL"
 else
-  opencode run "$FINAL"
+  opencode run "${PRINT_LOG_ARGS[@]}" "$FINAL"
 fi
 EXIT_CODE=$?
 set -e

@@ -2,6 +2,7 @@
 """Format opencode JSON output for GitHub Actions logs."""
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -194,7 +195,10 @@ def process_stream(stream: IO[str], output: TextIO = sys.stdout) -> None:
 
 
 def run_opencode(prompt: str, output: TextIO = sys.stdout) -> int:
-    base_cmd = ["opencode", "run", "--format", "json", prompt]
+    base_cmd = ["opencode", "run"]
+    if os.environ.get("OPENCODE_PRINT_LOGS", "false").lower() == "true":
+        base_cmd.append("--print-logs")
+    base_cmd.extend(["--format", "json", prompt])
 
     # Use stdbuf to force line-buffered output from opencode
     stdbuf = shutil.which("stdbuf")

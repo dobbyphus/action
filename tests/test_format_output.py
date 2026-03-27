@@ -1,26 +1,35 @@
 #!/usr/bin/env python3
 
+import importlib.util
 import io
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from format_output import (
-    format_tool_input,
-    format_tool_name,
-    format_tool_output,
-    format_todos,
-    get_tool_icon,
-    handle_text,
-    handle_tool_result,
-    handle_tool_use,
-    print_group_end,
-    print_group_start,
-    process_event,
-    process_stream,
-    truncate_content,
-)
+def load_format_output_module():
+    script_path = Path(__file__).parent.parent / "scripts" / "format_output.py"
+    spec = importlib.util.spec_from_file_location("format_output", script_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Unable to load format_output module")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+format_output = load_format_output_module()
+format_tool_input = format_output.format_tool_input
+format_tool_name = format_output.format_tool_name
+format_tool_output = format_output.format_tool_output
+format_todos = format_output.format_todos
+get_tool_icon = format_output.get_tool_icon
+handle_text = format_output.handle_text
+handle_tool_result = format_output.handle_tool_result
+handle_tool_use = format_output.handle_tool_use
+print_group_end = format_output.print_group_end
+print_group_start = format_output.print_group_start
+process_event = format_output.process_event
+process_stream = format_output.process_stream
+run_opencode = format_output.run_opencode
+truncate_content = format_output.truncate_content
 
 
 class TestGetToolIcon:
@@ -385,3 +394,47 @@ class TestProcessStream:
         result = output.getvalue()
         assert "plain text line" in result
         assert "Valid JSON" in result
+
+
+class TestRunOpencode:
+    def test_run_without_print_logs(self, monkeypatch):
+        commands = []
+
+        class FakeProcess:
+            def __init__(self, cmd, **kwargs):
+                commands.append(cmd)
+                self.stdout = io.StringIO("")
+
+            def wait(self):
+                return 0
+
+        monkeypatch.delenv("OPENCODE_PRINT_LOGS", raising=False)
+        monkeypatch.setattr(format_output.shutil, "which", lambda _name: None)
+        monkeypatch.setattr(format_output.subprocess, "Popen", FakeProcess)
+
+        exit_code = run_opencode("hello")
+
+        assert exit_code == 0
+        assert commands == [["opencode", "run", "--format", "json", "hello"]]
+
+    def test_run_with_print_logs(self, monkeypatch):
+        commands = []
+
+        class FakeProcess:
+            def __init__(self, cmd, **kwargs):
+                commands.append(cmd)
+                self.stdout = io.StringIO("")
+
+            def wait(self):
+                return 0
+
+        monkeypatch.setenv("OPENCODE_PRINT_LOGS", "true")
+        monkeypatch.setattr(format_output.shutil, "which", lambda _name: None)
+        monkeypatch.setattr(format_output.subprocess, "Popen", FakeProcess)
+
+        exit_code = run_opencode("hello")
+
+        assert exit_code == 0
+        assert commands == [
+            ["opencode", "run", "--print-logs", "--format", "json", "hello"]
+        ]
