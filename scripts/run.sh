@@ -64,6 +64,19 @@ fi
 EXIT_CODE=$?
 set -e
 
+if [[ "${OPENCODE_PRINT_LOGS:-false}" == "true" ]]; then
+  OMO_LOG_FILE="$(python3 -c 'import tempfile; print(tempfile.gettempdir() + "/oh-my-opencode.log")')"
+  if [[ -f "$OMO_LOG_FILE" ]]; then
+    if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+      echo "::group::oh-my-opencode internal log"
+    fi
+    cat "$OMO_LOG_FILE"
+    if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+      echo "::endgroup::"
+    fi
+  fi
+fi
+
 if [[ $EXIT_CODE -ne 0 ]]; then
   if [[ -f .dobbyphus-state.json ]]; then
     jq '. + {failed: true}' .dobbyphus-state.json > .dobbyphus-state.tmp \
