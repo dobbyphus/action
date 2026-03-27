@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import json
 import os
 import subprocess
 import tempfile
@@ -55,3 +56,56 @@ class TestRunScript:
                 log_file.unlink(missing_ok=True)
             else:
                 log_file.write_text(original)
+
+    def test_prompt_append_preserves_sisyphus_model(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+
+            fake_opencode = fake_bin / "opencode"
+            fake_opencode.write_text(
+                "#!/bin/bash\nprintf 'fake opencode %s\\n' \"$*\"\n"
+            )
+            fake_opencode.chmod(0o755)
+
+            home = tmppath / "home"
+            omo_dir = home / ".config" / "opencode"
+            omo_dir.mkdir(parents=True)
+            omo_file = omo_dir / "oh-my-opencode.json"
+            omo_file.write_text(
+                json.dumps(
+                    {
+                        "agents": {
+                            "sisyphus": {
+                                "model": "github-copilot/claude-opus-4.6",
+                                "variant": "max",
+                            }
+                        }
+                    }
+                )
+            )
+
+            subprocess.run(
+                ["bash", str(RUN_SCRIPT)],
+                check=True,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_PATH),
+                    "HOME": str(home),
+                    "PROMPT": "Reply with the single word OK.",
+                    "PROMPT_VARS": "{}",
+                    "FORMAT_OUTPUT": "false",
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                },
+            )
+
+            data = json.loads(omo_file.read_text())
+            assert (
+                data["agents"]["sisyphus"]["model"] == "github-copilot/claude-opus-4.6"
+            )
+            assert data["agents"]["sisyphus"]["variant"] == "max"
+            assert "prompt_append" in data["agents"]["sisyphus"]
+            assert "Sisyphus" not in data["agents"]

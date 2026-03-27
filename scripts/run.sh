@@ -23,7 +23,7 @@ if [[ -n "$PROMPT_APPEND" ]]; then
   OMO_FILE="$HOME/.config/opencode/oh-my-opencode.json"
   if [[ -f "$OMO_FILE" ]]; then
     jq --arg append "$PROMPT_APPEND" \
-      '.agents.Sisyphus.prompt_append = $append' \
+      '.agents.sisyphus = ((.agents.sisyphus // {}) + {prompt_append: $append})' \
       "$OMO_FILE" > "${OMO_FILE}.tmp" && mv "${OMO_FILE}.tmp" "$OMO_FILE"
   fi
 fi
