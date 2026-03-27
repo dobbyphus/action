@@ -59,7 +59,7 @@ jobs:
       # Checkout the working branch (PR or main) for the agent to operate on
       - name: Checkout working branch
         # yamllint disable-line rule:line-length rule:comments
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           ref: ${{ github.head_ref || github.ref }}
           fetch-depth: 0
@@ -71,7 +71,7 @@ jobs:
       # to .trusted-action, we ensure only reviewed code runs with elevated permissions.
       - name: Checkout action (trusted)
         # yamllint disable-line rule:line-length rule:comments
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           ref: main
           path: .trusted-action
