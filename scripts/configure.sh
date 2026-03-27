@@ -6,19 +6,17 @@ CONFIG_SCRIPT="$ACTION_PATH/scripts/config.py"
 
 "$CONFIG_SCRIPT"
 
-OPENCODE_CONFIG="$HOME/.config/opencode/opencode.json"
-OMO_CONFIG="$HOME/.config/opencode/oh-my-opencode.json"
+CONFIG_DIR="$HOME/.config/opencode"
 
-if [[ -f "$OPENCODE_CONFIG" ]]; then
-  echo "==> $OPENCODE_CONFIG"
-  cat "$OPENCODE_CONFIG"
-  echo
-fi
-
-if [[ -f "$OMO_CONFIG" ]]; then
-  echo "==> $OMO_CONFIG"
-  cat "$OMO_CONFIG"
-  echo
+if [[ -d "$CONFIG_DIR" ]]; then
+  shopt -s nullglob
+  for config_file in "$CONFIG_DIR"/*; do
+    [[ -f "$config_file" ]] || continue
+    echo "==> $config_file"
+    cat "$config_file"
+    echo
+  done
+  shopt -u nullglob
 fi
 
 if [[ -n "${GITHUB_TOKEN:-}" ]]; then

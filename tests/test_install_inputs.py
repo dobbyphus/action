@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 
+import os
 from pathlib import Path
+import subprocess
+import tempfile
 
 
 ACTION_YAML = Path(__file__).parent.parent / "action.yaml"
 INSTALL_SCRIPT = Path(__file__).parent.parent / "scripts" / "install.sh"
+CONFIGURE_SCRIPT = Path(__file__).parent.parent / "scripts" / "configure.sh"
 
 
 class TestProviderInstallInputs:
@@ -56,3 +60,33 @@ class TestProviderInstallInputs:
         assert '--zai-coding-plan="${PROVIDER_ZAI_CODING_PLAN:-no}"' in install_text
         assert '--kimi-for-coding="${PROVIDER_KIMI_FOR_CODING:-no}"' in install_text
         assert '--opencode-go="${PROVIDER_OPENCODE_GO:-no}"' in install_text
+
+    def test_configure_dumps_only_top_level_opencode_config_files(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            home = tmppath / "home"
+            config_dir = home / ".config" / "opencode"
+            nested = config_dir / "node_modules"
+            nested.mkdir(parents=True)
+            (nested / "ignored.json").write_text('{"nested": true}')
+
+            result = subprocess.run(
+                ["bash", str(CONFIGURE_SCRIPT)],
+                check=True,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_YAML.parent),
+                    "HOME": str(home),
+                    "AUTH_JSON": '{"github-copilot": {"type": "oauth", "refresh": "x", "access": "x", "expires": 0}}',
+                    "PROVIDER_ANTHROPIC": "no",
+                    "PROVIDER_COPILOT": "yes",
+                },
+            )
+
+            assert "==> " in result.stdout
+            assert "opencode.json" in result.stdout
+            assert "oh-my-opencode.json" in result.stdout
+            assert "ignored.json" not in result.stdout
+            assert '{"nested": true}' not in result.stdout
