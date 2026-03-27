@@ -155,6 +155,10 @@ inputs:
     description: Format output with collapsible sections for GitHub Actions logs
     required: false
     default: "true"
+  opencode_print_logs:
+    description: Include raw opencode runtime logs (--print-logs) in agent runs
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -549,6 +553,7 @@ runs:
         AGENT_KEYWORDS: ${{ inputs.agent_keywords }}
         REVIEW_KEYWORDS: ${{ inputs.review_keywords }}
         FORMAT_OUTPUT: ${{ inputs.format_output }}
+        OPENCODE_PRINT_LOGS: ${{ inputs.opencode_print_logs }}
 
     # === TEARDOWN (always runs) ===
     - name: Replay commits as signed
