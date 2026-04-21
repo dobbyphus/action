@@ -29,6 +29,7 @@ print_group_start = format_output.print_group_start
 process_event = format_output.process_event
 process_stream = format_output.process_stream
 run_opencode = format_output.run_opencode
+should_print_logs = format_output.should_print_logs
 truncate_content = format_output.truncate_content
 
 
@@ -438,3 +439,52 @@ class TestRunOpencode:
         assert commands == [
             ["opencode", "run", "--print-logs", "--format", "json", "hello"]
         ]
+
+    def test_run_with_runner_debug(self, monkeypatch):
+        commands = []
+
+        class FakeProcess:
+            def __init__(self, cmd, **kwargs):
+                commands.append(cmd)
+                self.stdout = io.StringIO("")
+
+            def wait(self):
+                return 0
+
+        monkeypatch.delenv("OPENCODE_PRINT_LOGS", raising=False)
+        monkeypatch.setenv("RUNNER_DEBUG", "1")
+        monkeypatch.setattr(format_output.shutil, "which", lambda _name: None)
+        monkeypatch.setattr(format_output.subprocess, "Popen", FakeProcess)
+
+        exit_code = run_opencode("hello")
+
+        assert exit_code == 0
+        assert commands == [
+            ["opencode", "run", "--print-logs", "--format", "json", "hello"]
+        ]
+
+
+class TestShouldPrintLogs:
+    def test_false_when_no_flags_set(self, monkeypatch):
+        monkeypatch.delenv("OPENCODE_PRINT_LOGS", raising=False)
+        monkeypatch.delenv("RUNNER_DEBUG", raising=False)
+        monkeypatch.delenv("ACTIONS_STEP_DEBUG", raising=False)
+        monkeypatch.delenv("ACTIONS_RUNNER_DEBUG", raising=False)
+
+        assert should_print_logs() is False
+
+    def test_true_for_actions_step_debug(self, monkeypatch):
+        monkeypatch.delenv("OPENCODE_PRINT_LOGS", raising=False)
+        monkeypatch.delenv("RUNNER_DEBUG", raising=False)
+        monkeypatch.setenv("ACTIONS_STEP_DEBUG", "true")
+        monkeypatch.delenv("ACTIONS_RUNNER_DEBUG", raising=False)
+
+        assert should_print_logs() is True
+
+    def test_true_for_actions_runner_debug(self, monkeypatch):
+        monkeypatch.delenv("OPENCODE_PRINT_LOGS", raising=False)
+        monkeypatch.delenv("RUNNER_DEBUG", raising=False)
+        monkeypatch.delenv("ACTIONS_STEP_DEBUG", raising=False)
+        monkeypatch.setenv("ACTIONS_RUNNER_DEBUG", "true")
+
+        assert should_print_logs() is True

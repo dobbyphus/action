@@ -156,7 +156,9 @@ inputs:
     required: false
     default: "true"
   opencode_print_logs:
-    description: Include raw opencode runtime logs (--print-logs) in agent runs
+    description: >-
+      Include raw opencode runtime logs (--print-logs) in agent runs;
+      GitHub debug reruns enable this automatically
     required: false
     default: "false"
 

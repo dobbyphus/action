@@ -30,6 +30,24 @@ TOOL_ICONS = {
 DEFAULT_ICON = "🔧"
 
 
+def env_flag_enabled(name: str) -> bool:
+    """Return True when an environment flag is explicitly enabled."""
+    return os.environ.get(name, "").lower() in {"1", "true"}
+
+
+def should_print_logs() -> bool:
+    """Enable print-logs for explicit config or GitHub debug mode."""
+    return any(
+        env_flag_enabled(name)
+        for name in (
+            "OPENCODE_PRINT_LOGS",
+            "RUNNER_DEBUG",
+            "ACTIONS_STEP_DEBUG",
+            "ACTIONS_RUNNER_DEBUG",
+        )
+    )
+
+
 def get_tool_icon(tool_name: str) -> str:
     """Get icon for a tool, case-insensitive."""
     return TOOL_ICONS.get(tool_name.lower(), DEFAULT_ICON)
@@ -196,7 +214,7 @@ def process_stream(stream: IO[str], output: TextIO = sys.stdout) -> None:
 
 def run_opencode(prompt: str, output: TextIO = sys.stdout) -> int:
     base_cmd = ["opencode", "run"]
-    if os.environ.get("OPENCODE_PRINT_LOGS", "false").lower() == "true":
+    if should_print_logs():
         base_cmd.append("--print-logs")
     base_cmd.extend(["--format", "json", prompt])
 
