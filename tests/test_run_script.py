@@ -57,6 +57,51 @@ class TestRunScript:
             else:
                 log_file.write_text(original)
 
+    def test_runner_debug_enables_print_logs(self):
+        log_file = Path(tempfile.gettempdir()) / "oh-my-opencode.log"
+        original = log_file.read_text() if log_file.exists() else None
+
+        try:
+            log_file.write_text("runner debug line\n")
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmppath = Path(tmpdir)
+                fake_bin = tmppath / "bin"
+                fake_bin.mkdir()
+
+                fake_opencode = fake_bin / "opencode"
+                fake_opencode.write_text(
+                    "#!/bin/bash\nprintf 'fake opencode %s\\n' \"$*\"\n"
+                )
+                fake_opencode.chmod(0o755)
+
+                result = subprocess.run(
+                    ["bash", str(RUN_SCRIPT)],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env={
+                        **os.environ,
+                        "ACTION_PATH": str(ACTION_PATH),
+                        "PROMPT": "Reply with the single word OK.",
+                        "PROMPT_VARS": "{}",
+                        "FORMAT_OUTPUT": "false",
+                        "RUNNER_DEBUG": "1",
+                        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                    },
+                )
+
+            assert (
+                "fake opencode run --print-logs Reply with the single word OK."
+                in result.stdout
+            )
+            assert "runner debug line" in result.stdout
+        finally:
+            if original is None:
+                log_file.unlink(missing_ok=True)
+            else:
+                log_file.write_text(original)
+
     def test_prompt_append_preserves_sisyphus_model(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)

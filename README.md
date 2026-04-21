@@ -106,7 +106,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | `skill_enable_playwright` | `false` | Enable playwright builtin skill (true/false) |
 | `skill_enable_frontend_ui_ux` | `false` | Enable frontend-ui-ux builtin skill (true/false) |
 | `format_output` | `true` | Format output with collapsible sections for GitHub Actions logs |
-| `opencode_print_logs` | `false` | Include raw opencode runtime logs (`--print-logs`) in agent runs |
+| `opencode_print_logs` | `false` | Include raw opencode runtime logs (`--print-logs`) in agent runs. GitHub debug reruns also enable this automatically. |
 
 ## How It Works
 

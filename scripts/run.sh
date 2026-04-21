@@ -4,6 +4,18 @@ set -uo pipefail
 ACTION_PATH="${ACTION_PATH:-.}"
 PROMPT_PATH="${PROMPT_PATH:-.github/prompts}"
 
+is_truthy() {
+  local value="${1:-}"
+  [[ "${value,,}" == "true" ]] || [[ "$value" == "1" ]]
+}
+
+should_print_logs() {
+  is_truthy "${OPENCODE_PRINT_LOGS:-false}" \
+    || is_truthy "${RUNNER_DEBUG:-}" \
+    || is_truthy "${ACTIONS_STEP_DEBUG:-false}" \
+    || is_truthy "${ACTIONS_RUNNER_DEBUG:-false}"
+}
+
 VARS_SCRIPT="$ACTION_PATH/scripts/vars.py"
 PROMPT_SCRIPT="$ACTION_PATH/scripts/prompt.py"
 SUBSTITUTE_SCRIPT="$ACTION_PATH/scripts/substitute.py"
@@ -50,8 +62,11 @@ fi
 FINAL=$("$SUBSTITUTE_SCRIPT" "$VARS" <<< "$TEMPLATE")
 FORMAT_SCRIPT="$ACTION_PATH/scripts/format_output.py"
 PRINT_LOG_ARGS=()
+PRINT_LOGS=false
 
-if [[ "${OPENCODE_PRINT_LOGS:-false}" == "true" ]]; then
+if should_print_logs; then
+  export OPENCODE_PRINT_LOGS=true
+  PRINT_LOGS=true
   PRINT_LOG_ARGS+=(--print-logs)
 fi
 
@@ -64,7 +79,7 @@ fi
 EXIT_CODE=$?
 set -e
 
-if [[ "${OPENCODE_PRINT_LOGS:-false}" == "true" ]]; then
+if [[ "$PRINT_LOGS" == "true" ]]; then
   OMO_LOG_FILE="$(python3 -c 'import tempfile; print(tempfile.gettempdir() + "/oh-my-opencode.log")')"
   if [[ -f "$OMO_LOG_FILE" ]]; then
     if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
