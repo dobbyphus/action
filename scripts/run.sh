@@ -6,7 +6,9 @@ PROMPT_PATH="${PROMPT_PATH:-.github/prompts}"
 
 is_truthy() {
   local value="${1:-}"
-  [[ "${value,,}" == "true" ]] || [[ "$value" == "1" ]]
+  local lowered
+  lowered=$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')
+  [[ "$lowered" == "true" ]] || [[ "$value" == "1" ]]
 }
 
 should_print_logs() {
@@ -63,6 +65,23 @@ FINAL=$("$SUBSTITUTE_SCRIPT" "$VARS" <<< "$TEMPLATE")
 FORMAT_SCRIPT="$ACTION_PATH/scripts/format_output.py"
 PRINT_LOG_ARGS=()
 PRINT_LOGS=false
+RUN_LOG="$(mktemp -t dobbyphus-run.XXXXXX)"
+
+provider_error_summary() {
+  local log_file="$1"
+
+  if grep -Eiq 'credit balance|insufficient[_ ]quota' "$log_file"; then
+    printf '%s\n' 'LLM provider quota or credit check failed.'
+    return 0
+  fi
+
+  if grep -Eiq 'invalid x-api-key|incorrect api key|api key[^[:cntrl:]]*invalid' "$log_file"; then
+    printf '%s\n' 'LLM provider API key authentication failed.'
+    return 0
+  fi
+
+  return 1
+}
 
 if should_print_logs; then
   export OPENCODE_PRINT_LOGS=true
@@ -72,12 +91,28 @@ fi
 
 set +e
 if [[ "${FORMAT_OUTPUT:-true}" == "true" ]] && [[ "${GITHUB_ACTIONS:-}" == "true" ]] && [[ -f "$FORMAT_SCRIPT" ]]; then
-  python3 "$FORMAT_SCRIPT" "$FINAL"
+  python3 "$FORMAT_SCRIPT" "$FINAL" 2> >(tee "$RUN_LOG" >&2)
+  EXIT_CODE=$?
 else
-  opencode run "${PRINT_LOG_ARGS[@]}" "$FINAL"
+  if [[ "$PRINT_LOGS" == "true" ]]; then
+    opencode run --print-logs "$FINAL" 2> >(tee "$RUN_LOG" >&2)
+  else
+    opencode run "$FINAL" 2> >(tee "$RUN_LOG" >&2)
+  fi
+  EXIT_CODE=$?
 fi
-EXIT_CODE=$?
 set -e
+
+ERROR_SUMMARY=""
+if ERROR_SUMMARY=$(provider_error_summary "$RUN_LOG"); then
+  jq -n --arg summary "$ERROR_SUMMARY" \
+    '{error_summary: $summary, failed: true}' > .dobbyphus-state.json
+  if [[ $EXIT_CODE -eq 0 ]]; then
+    EXIT_CODE=1
+  fi
+fi
+
+rm -f "$RUN_LOG"
 
 if [[ "$PRINT_LOGS" == "true" ]]; then
   OMO_LOG_FILE="$(python3 -c 'import tempfile; print(tempfile.gettempdir() + "/oh-my-opencode.log")')"
@@ -99,4 +134,4 @@ if [[ $EXIT_CODE -ne 0 ]]; then
   fi
 fi
 
-exit $EXIT_CODE
+exit "$EXIT_CODE"

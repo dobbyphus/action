@@ -154,3 +154,39 @@ class TestRunScript:
             assert data["agents"]["sisyphus"]["variant"] == "max"
             assert "prompt_append" in data["agents"]["sisyphus"]
             assert "Sisyphus" not in data["agents"]
+
+    def test_provider_error_output_fails_run(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+
+            fake_opencode = fake_bin / "opencode"
+            fake_opencode.write_text(
+                "#!/bin/bash\n"
+                "printf 'APIError: Your credit balance is too low to access the Anthropic API.\\n' >&2\n"
+            )
+            fake_opencode.chmod(0o755)
+
+            result = subprocess.run(
+                ["bash", str(RUN_SCRIPT)],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=tmppath,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_PATH),
+                    "PROMPT": "Reply with the single word OK.",
+                    "PROMPT_VARS": "{}",
+                    "FORMAT_OUTPUT": "false",
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                },
+            )
+
+            assert result.returncode == 1
+            state = json.loads((tmppath / ".dobbyphus-state.json").read_text())
+            assert (
+                state["error_summary"] == "LLM provider quota or credit check failed."
+            )
+            assert state["failed"] is True

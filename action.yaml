@@ -559,7 +559,7 @@ runs:
 
     # === TEARDOWN (always runs) ===
     - name: Replay commits as signed
-      if: always() && steps.agent.outputs.exit_code == '0'
+      if: always() && steps.agent.outputs.exit_code == '0' && steps.mode.outputs.value != 'review'
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github_token }}
@@ -580,8 +580,19 @@ runs:
         REPO="${{ github.repository }}"
         RUN_ID="${{ github.run_id }}"
         RUN_URL="$SERVER/$REPO/actions/runs/$RUN_ID"
-        gh issue comment "${{ steps.context.outputs.number }}" \
-          --body "Agent encountered an error. [View logs]($RUN_URL)"
+
+        ERROR_SUMMARY=""
+        if [[ -f .dobbyphus-state.json ]]; then
+          ERROR_SUMMARY=$(jq -r '.error_summary // ""' .dobbyphus-state.json)
+        fi
+
+        if [[ -n "$ERROR_SUMMARY" ]]; then
+          BODY="Agent encountered an error: $ERROR_SUMMARY [View logs]($RUN_URL)"
+        else
+          BODY="Agent encountered an error. [View logs]($RUN_URL)"
+        fi
+
+        gh issue comment "${{ steps.context.outputs.number }}" --body "$BODY"
 
     - name: Update reaction
       if: always() && steps.context.outputs.comment_id != ''
