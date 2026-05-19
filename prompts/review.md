@@ -63,6 +63,33 @@ separate PR comment.
 - No excessive comments
 - Tests for new functionality
 
+### INFRASTRUCTURE / ANSIBLE REVIEW CHECKS
+
+When reviewing infrastructure-as-code, Ansible, Kubernetes, Terraform, or
+deployment automation changes, do not stop at syntax and lint checks. Look for
+contextual regressions created by tags, conditionals, inventory variables, and
+runtime ordering.
+
+For Ansible playbooks and roles specifically:
+
+- Check changed service names against existing variables/defaults/group_vars.
+  A hard-coded service is a blocker when the repo already has a conditional
+  variant, for example kubelet-container vs classic systemd services.
+- Check tag semantics for `never`, `--tags`, `import_role`, `include_role`, and
+  `apply.tags`. If a PR advertises a tag as an entry point, verify the tag
+  selects every prerequisite task it needs.
+- If the PR claims a tagged Ansible entry point works but does not include
+  evidence, flag the missing validation and name the exact validation command
+  the author should run, for example `ansible-playbook ... --tags <tag>
+  --list-tasks`.
+- Treat `failed_when: false`, `ignore_errors`, and broad shell hooks around
+  service restarts as suspicious. They are blockers when they can hide failed
+  restarts, stale certificates, or partially-applied runtime state.
+- Cross-check new reusable task files from both call sites: normal role flow
+  and explicit tagged entry points.
+- If a Copilot/human finding is partly wrong, still look for the underlying
+  real defect. Fix the real defect; do not blindly apply the suggested patch.
+
 ### Output Requirements (NON-NEGOTIABLE)
 
 - Label every finding as `BLOCKER` or `NON-BLOCKER`.
