@@ -64,6 +64,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           bot_name: ai-agent
+          bot_login: github-actions[bot]
 ```
 
 See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with mode detection and GitHub App token comments.
@@ -73,6 +74,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | Input | Default | Description |
 |-------|---------|-------------|
 | `bot_name` | `ai-agent` | Bot name for labels and mentions |
+| `bot_login` | `""` | Optional GitHub login expected to author review output; use when review verification cannot infer it from the event |
 | `mention_users` | `false` | Whether to @mention users in comments (reduces notification noise when false) |
 | `anthropic_api_key` | - | Anthropic API key |
 | `openai_api_key` | - | OpenAI API key |
@@ -123,7 +125,7 @@ The action supports two modes via the `mode` input:
 | Mode | Use Case | Prompt |
 |------|----------|--------|
 | `agent` | Issue comments, PR comments, workflow dispatch | Work on requests, make changes |
-| `review` | PR opened, review requested | Review code, provide feedback |
+| `review` | PR review requests and review comments | Review code, provide feedback |
 
 ### Trigger Conditions
 
@@ -131,7 +133,7 @@ Use job-level `if` to control when the agent runs. The example covers:
 
 - `workflow_dispatch`: Always run on manual trigger
 - `issue_comment`: @mention by authorized user
-- `pull_request`: Non-draft PR opened or ready for review
+- `pull_request`: Review requested / reviewer assigned
 - `pull_request_review`: @mention in review body
 - `pull_request_review_comment`: @mention in inline diff comment
 
@@ -156,10 +158,10 @@ All commits are signed and verified by GitHub. The agent commits normally using 
 |---------|------|--------------|-------------|
 | Issue comment | `agent` | Create branch, commit | Push branch, create PR |
 | PR comment | `agent` | Commit to PR branch | Push to PR branch |
-| PR inline comment | `review` | Review code, respond | Commit to PR branch |
+| PR inline comment | `review` | Review code, respond | Reply in thread |
 | Workflow dispatch | `agent` | Create branch, commit | Push branch, create PR |
-| PR opened | `review` | Review code | Post review comment |
 | Review request | `review` | Review code | Post review comment |
+| Review body mention | `review` | Review code | Post review comment |
 
 ## Configuration
 
@@ -171,6 +173,10 @@ Set these in Settings → Secrets and variables → Variables:
 |----------|---------|-------------|
 | `BOT_NAME` | `ai-agent` | Bot mention trigger and label prefix |
 | `BOT_LOGIN` | `github-actions[bot]` | Bot login to prevent self-triggering |
+
+If hosted review verification cannot infer the review author from the event,
+pass `bot_login` explicitly so the action can verify that review mode posted a
+new PR review.
 
 ## Authentication
 
@@ -209,6 +215,7 @@ For production use. Provides higher API limits, can trigger workflows, and commi
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     github_token: ${{ steps.app-token.outputs.token }}
+    bot_login: my-app[bot]
 ```
 
 **Setup**: Create a GitHub App with `contents: write`, `issues: write`, `pull-requests: write` permissions. Store the App ID in a variable and the private key as a secret.

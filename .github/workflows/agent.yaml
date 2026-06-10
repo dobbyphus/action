@@ -98,6 +98,7 @@ jobs:
         uses: ./.trusted-action
         with:
           bot_name: dobbyphus
+          bot_login: dobbyphus[bot]
           auth_json: ${{ secrets.COPILOT_AUTH_JSON }}
           provider_anthropic: "no"
           provider_copilot: "yes"

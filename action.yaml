@@ -19,6 +19,13 @@ inputs:
     required: false
     default: "false"
 
+  bot_login:
+    description: >-
+      Optional GitHub login expected to author review output; use when
+      automatic detection is unavailable for review verification
+    required: false
+    default: ""
+
   anthropic_api_key:
     description: Anthropic API key
     required: false
@@ -177,6 +184,7 @@ runs:
         REVIEW_BODY: ${{ github.event.review.body }}
         COMMENT_BODY: ${{ github.event.comment.body }}
         PR_URL_EVENT: ${{ github.event.issue.pull_request.url }}
+        REQUESTED_REVIEWER_LOGIN: ${{ github.event.requested_reviewer.login }}
         COMMENT_PATH: ${{ github.event.comment.path }}
         COMMENT_LINE: ${{ github.event.comment.line }}
         COMMENT_START_LINE: ${{ github.event.comment.start_line }}
@@ -204,6 +212,9 @@ runs:
           AUTHOR="${{ github.event.sender.login }}"
           COMMENT_ID=""
           CONTEXT_TYPE="pr_opened"
+          if [[ -n "$REQUESTED_REVIEWER_LOGIN" ]]; then
+            CONTEXT_TYPE="pr_review_request"
+          fi
           COMMENT=""
           PR_TITLE="$PR_TITLE_EVENT"
           PR_AUTHOR="${{ github.event.pull_request.user.login }}"
@@ -429,6 +440,7 @@ runs:
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
     - name: Add eyes reaction
+      id: eyes_reaction
       if: steps.context.outputs.comment_id != ''
       shell: bash
       env:
@@ -445,7 +457,56 @@ runs:
           ENDPOINT="/repos/$REPO/issues/comments/$COMMENT_ID/reactions"
         fi
 
-        gh api "$ENDPOINT" -X POST -f content="eyes" || true
+        set +e
+        RESPONSE=$(gh api "$ENDPOINT" -X POST -f content="eyes")
+        EXIT_CODE=$?
+        set -e
+
+        if [[ $EXIT_CODE -eq 0 ]]; then
+          echo "user_login=$(echo "$RESPONSE" | jq -r '.user.login // ""')" >> "$GITHUB_OUTPUT"
+        else
+          echo "user_login=" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Resolve actor login
+      id: actor
+      if: >-
+        steps.mode.outputs.value == 'review' &&
+        (steps.context.outputs.context_type == 'pr_comment' ||
+         steps.context.outputs.context_type == 'pr_review_request')
+      shell: bash
+      env:
+        INPUT_BOT_LOGIN: ${{ inputs.bot_login }}
+        REQUESTED_REVIEWER_LOGIN: ${{ github.event.requested_reviewer.login }}
+        REACTION_USER_LOGIN: ${{ steps.eyes_reaction.outputs.user_login }}
+      run: |
+        LOGIN=""
+
+        if [[ -n "$INPUT_BOT_LOGIN" ]]; then
+          LOGIN="$INPUT_BOT_LOGIN"
+        elif [[ -n "$REQUESTED_REVIEWER_LOGIN" ]]; then
+          LOGIN="$REQUESTED_REVIEWER_LOGIN"
+        elif [[ -n "$REACTION_USER_LOGIN" ]]; then
+          LOGIN="$REACTION_USER_LOGIN"
+        fi
+
+        echo "login=$LOGIN" >> "$GITHUB_OUTPUT"
+
+    - name: Capture review baseline
+      id: review_baseline
+      if: >-
+        steps.actor.outputs.login != '' &&
+        steps.mode.outputs.value == 'review' &&
+        (steps.context.outputs.context_type == 'pr_comment' ||
+         steps.context.outputs.context_type == 'pr_review_request')
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+      run: |
+        REVIEWS_BEFORE="$RUNNER_TEMP/reviews-before.json"
+        gh api --paginate "repos/${{ github.repository }}/pulls/${{ steps.context.outputs.number }}/reviews" \
+          | jq -s 'add' > "$REVIEWS_BEFORE"
+        echo "path=$REVIEWS_BEFORE" >> "$GITHUB_OUTPUT"
 
     - name: Add working label
       if: steps.context.outputs.number != ''
@@ -557,6 +618,73 @@ runs:
         FORMAT_OUTPUT: ${{ inputs.format_output }}
         OPENCODE_PRINT_LOGS: ${{ inputs.opencode_print_logs }}
 
+    - name: Verify review output
+      id: review_output
+      continue-on-error: true
+      if: >-
+        always() &&
+        steps.agent.outputs.exit_code == '0' &&
+        steps.mode.outputs.value == 'review' &&
+        (steps.context.outputs.context_type == 'pr_comment' ||
+         steps.context.outputs.context_type == 'pr_review_request')
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+      run: |
+        if [[ -z "${{ steps.actor.outputs.login }}" ]]; then
+          SUMMARY="Review output verification could not determine the "
+          SUMMARY+="review author login for this trigger. Set bot_login "
+          SUMMARY+="to enable verification for this review context."
+          jq -n --arg summary "$SUMMARY" \
+            '{error_summary: $summary, failed: true}' > .dobbyphus-state.json
+          echo "exit_code=1" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        REVIEWS_AFTER="$RUNNER_TEMP/reviews-after.json"
+
+        set +e
+        gh api --paginate "repos/${{ github.repository }}/pulls/${{ steps.context.outputs.number }}/reviews" \
+          | jq -s 'add' > "$REVIEWS_AFTER"
+        FETCH_EXIT=$?
+        set -e
+
+        if [[ $FETCH_EXIT -ne 0 ]]; then
+          jq -n --arg summary "Failed to fetch PR reviews after the review run." \
+            '{error_summary: $summary, failed: true}' > .dobbyphus-state.json
+          echo "exit_code=1" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        set +e
+        VERIFY_OUTPUT=$(python3 "${{ github.action_path }}/scripts/verify_review_output.py" \
+          "${{ steps.actor.outputs.login }}" \
+          "${{ steps.context.outputs.context_type }}" \
+          "${{ steps.review_baseline.outputs.path }}" \
+          "$REVIEWS_AFTER" 2>&1)
+        VERIFY_EXIT=$?
+        set -e
+
+        if [[ $VERIFY_EXIT -ne 0 ]]; then
+          jq -n --arg summary "$VERIFY_OUTPUT" \
+            '{error_summary: $summary, failed: true}' > .dobbyphus-state.json
+        fi
+
+        echo "exit_code=$VERIFY_EXIT" >> "$GITHUB_OUTPUT"
+
+    - name: Determine final exit code
+      id: final_status
+      if: always()
+      shell: bash
+      run: |
+        EXIT_CODE="${{ steps.agent.outputs.exit_code }}"
+
+        if [[ "$EXIT_CODE" == "0" && "${{ steps.review_output.outputs.exit_code }}" != "" ]]; then
+          EXIT_CODE="${{ steps.review_output.outputs.exit_code }}"
+        fi
+
+        echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+
     # === TEARDOWN (always runs) ===
     - name: Replay commits as signed
       if: always() && steps.agent.outputs.exit_code == '0' && steps.mode.outputs.value != 'review'
@@ -571,7 +699,7 @@ runs:
 
     - name: Post failure comment
       # yamllint disable-line rule:line-length
-      if: always() && steps.agent.outputs.exit_code != '0' && steps.context.outputs.number != ''
+      if: always() && steps.final_status.outputs.exit_code != '0' && steps.context.outputs.number != ''
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github_token }}
@@ -618,7 +746,7 @@ runs:
           gh api -X DELETE "$ENDPOINT/$REACTION_ID" || true
         fi
 
-        if [[ "${{ steps.agent.outputs.exit_code }}" != "0" ]]; then
+        if [[ "${{ steps.final_status.outputs.exit_code }}" != "0" ]]; then
           gh api "$ENDPOINT" -X POST -f content="confused" || true
         else
           gh api "$ENDPOINT" -X POST -f content="+1" || true
@@ -636,6 +764,6 @@ runs:
           --remove-label "$LABEL" || true
 
     - name: Propagate agent failure
-      if: always() && steps.agent.outputs.exit_code != '0'
+      if: always() && steps.final_status.outputs.exit_code != '0'
       shell: bash
       run: exit 1
