@@ -60,6 +60,32 @@ class TestProviderInstallInputs:
         assert "Include raw opencode runtime logs" in action_text
         assert "OPENCODE_PRINT_LOGS: ${{ inputs.opencode_print_logs }}" in action_text
 
+    def test_action_exposes_bot_login_input(self):
+        action_text = ACTION_YAML.read_text()
+
+        assert "bot_login:" in action_text
+        assert "Optional GitHub login expected to author review output" in action_text
+
+    def test_review_output_verification_uses_pagination(self):
+        action_text = ACTION_YAML.read_text()
+
+        assert "Resolve actor login" in action_text
+        assert "Add eyes reaction" in action_text
+        assert "Capture review baseline" in action_text
+        assert "Verify review output" in action_text
+        assert "gh api --paginate" in action_text
+        assert "steps.mode.outputs.value == 'review'" in action_text
+        assert "REQUESTED_REVIEWER_LOGIN" in action_text
+        assert "REACTION_USER_LOGIN" in action_text
+
+    def test_review_output_verification_is_folded_into_final_status(self):
+        action_text = ACTION_YAML.read_text()
+
+        assert "continue-on-error: true" in action_text
+        assert "Determine final exit code" in action_text
+        assert "steps.review_output.outputs.exit_code" in action_text
+        assert "steps.final_status.outputs.exit_code" in action_text
+
     def test_install_passes_extended_provider_flags(self):
         install_text = INSTALL_SCRIPT.read_text()
 
