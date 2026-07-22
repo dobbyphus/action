@@ -22,6 +22,7 @@ parse_provider_list = config.parse_provider_list
 derive_provider_lists = config.derive_provider_lists
 provider_enabled = config.provider_enabled
 build_provider_overrides = config.build_provider_overrides
+pin_omo_plugin = config.pin_omo_plugin
 
 
 def assert_value_error(expected: str, func, *args):
@@ -289,3 +290,21 @@ class TestGenerateOmoConfig:
             "true",
         )
         assert result["disabled_skills"] == ["playwright"]
+
+
+class TestPinOmoPlugin:
+    def test_pins_installer_plugin_to_resolved_version(self):
+        result = pin_omo_plugin(
+            {"plugin": ["other-plugin", "oh-my-opencode@latest"]},
+            "v4.19.0",
+        )
+
+        assert result["plugin"] == [
+            "other-plugin",
+            "oh-my-opencode@4.19.0",
+        ]
+
+    def test_leaves_config_without_omo_plugin_unchanged(self):
+        original = {"plugin": ["other-plugin"]}
+
+        assert pin_omo_plugin(original, "v4.19.0") == original

@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 
-REVIEW_CONTEXT_TYPES = {"pr_comment", "pr_review_request"}
+REVIEW_CONTEXT_TYPES = {"pr_comment", "pr_opened", "pr_review_request"}
 
 
 def load_reviews(path: Path) -> list[dict]:

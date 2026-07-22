@@ -3,6 +3,7 @@ set -uo pipefail
 
 ACTION_PATH="${ACTION_PATH:-.}"
 PROMPT_PATH="${PROMPT_PATH:-.github/prompts}"
+OMO_FILE="$HOME/.config/opencode/oh-my-opencode.json"
 
 is_truthy() {
   local value="${1:-}"
@@ -34,12 +35,20 @@ for base in github_env comment_formatting file_changes; do
 done
 
 if [[ -n "$PROMPT_APPEND" ]]; then
-  OMO_FILE="$HOME/.config/opencode/oh-my-opencode.json"
   if [[ -f "$OMO_FILE" ]]; then
     jq --arg append "$PROMPT_APPEND" \
       '.agents.sisyphus = ((.agents.sisyphus // {}) + {prompt_append: $append})' \
       "$OMO_FILE" > "${OMO_FILE}.tmp" && mv "${OMO_FILE}.tmp" "$OMO_FILE"
   fi
+fi
+
+if [[ -f "$OMO_FILE" ]]; then
+  jq -r '
+    .agents.sisyphus
+    | select(type == "object" and (.model | type == "string"))
+    | (.model | split("/")) as $model
+    | "Runtime config: agent=sisyphus provider=\($model[0]) model=\($model[1:] | join("/")) variant=\(.variant // "default")"
+  ' "$OMO_FILE"
 fi
 
 if [[ -n "${PROMPT:-}" ]]; then

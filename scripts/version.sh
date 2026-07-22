@@ -2,13 +2,14 @@
 set -euo pipefail
 
 if [[ "${OPENCODE_VERSION:-latest}" == "latest" ]]; then
-  OPENCODE=$(gh api repos/sst/opencode/releases/latest --jq '.tag_name')
+  OPENCODE=$(gh api repos/anomalyco/opencode/releases/latest --jq '.tag_name')
 else
   OPENCODE="${OPENCODE_VERSION}"
 fi
 
 if [[ "${OH_MY_OPENCODE_VERSION:-latest}" == "latest" ]]; then
-  OMO=$(gh api repos/code-yeongyu/oh-my-opencode/releases/latest --jq '.tag_name')
+  OMO="v$(curl -fsSL https://registry.npmjs.org/oh-my-opencode/latest \
+    | jq -er '.version')"
 else
   OMO="${OH_MY_OPENCODE_VERSION}"
 fi
