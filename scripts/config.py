@@ -167,6 +167,22 @@ def merge_configs(base: dict, override: dict) -> dict:
     return merged
 
 
+def pin_omo_plugin(config: dict, version: str | None) -> dict:
+    if not version or not isinstance(config.get("plugin"), list):
+        return config
+
+    pinned = config.copy()
+    package_version = version.removeprefix("v")
+    pinned["plugin"] = [
+        f"{entry.split('@', 1)[0]}@{package_version}"
+        if isinstance(entry, str)
+        and entry.split("@", 1)[0] in {"oh-my-opencode", "oh-my-openagent"}
+        else entry
+        for entry in config["plugin"]
+    ]
+    return pinned
+
+
 def main():
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
     openai_key = os.environ.get("OPENAI_API_KEY")
@@ -175,6 +191,7 @@ def main():
     if auth_json is not None and not auth_json.strip():
         auth_json = None
     config_json = os.environ.get("CONFIG_JSON")
+    omo_version = os.environ.get("OH_MY_OPENCODE_VERSION")
     enabled_providers = os.environ.get("ENABLED_PROVIDERS")
     disabled_providers = os.environ.get("DISABLED_PROVIDERS")
     provider_settings = {
@@ -240,7 +257,7 @@ def main():
     if provider_overrides:
         override_config = merge_configs(override_config, provider_overrides)
 
-    merged_config = base_config
+    merged_config = pin_omo_plugin(base_config, omo_version)
     if primary_override:
         merged_config = merge_configs(merged_config, {"model": primary_override})
     if override_config:

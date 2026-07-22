@@ -21,8 +21,8 @@ inputs:
 
   bot_login:
     description: >-
-      Optional GitHub login expected to author review output; use when
-      automatic detection is unavailable for review verification
+      GitHub login expected to author review output; required for pull_request
+      review events when automatic detection is unavailable
     required: false
     default: ""
 
@@ -473,6 +473,7 @@ runs:
       if: >-
         steps.mode.outputs.value == 'review' &&
         (steps.context.outputs.context_type == 'pr_comment' ||
+         steps.context.outputs.context_type == 'pr_opened' ||
          steps.context.outputs.context_type == 'pr_review_request')
       shell: bash
       env:
@@ -498,6 +499,7 @@ runs:
         steps.actor.outputs.login != '' &&
         steps.mode.outputs.value == 'review' &&
         (steps.context.outputs.context_type == 'pr_comment' ||
+         steps.context.outputs.context_type == 'pr_opened' ||
          steps.context.outputs.context_type == 'pr_review_request')
       shell: bash
       env:
@@ -554,6 +556,7 @@ runs:
       shell: bash
       run: ${{ github.action_path }}/scripts/install.sh
       env:
+        GH_TOKEN: ${{ inputs.github_token }}
         OPENCODE_VERSION: ${{ steps.version.outputs.opencode }}
         OH_MY_OPENCODE_VERSION: ${{ steps.version.outputs.oh_my_opencode }}
         PROVIDER_ANTHROPIC: ${{ inputs.provider_anthropic }}
@@ -582,6 +585,7 @@ runs:
         PROVIDER_ZAI_CODING_PLAN: ${{ inputs.provider_zai_coding_plan }}
         PROVIDER_KIMI_FOR_CODING: ${{ inputs.provider_kimi_for_coding }}
         PROVIDER_OPENCODE_GO: ${{ inputs.provider_opencode_go }}
+        OH_MY_OPENCODE_VERSION: ${{ steps.version.outputs.oh_my_opencode }}
         OMO_CONFIG_JSON: ${{ inputs.omo_config_json }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
@@ -626,12 +630,15 @@ runs:
         steps.agent.outputs.exit_code == '0' &&
         steps.mode.outputs.value == 'review' &&
         (steps.context.outputs.context_type == 'pr_comment' ||
+         steps.context.outputs.context_type == 'pr_opened' ||
          steps.context.outputs.context_type == 'pr_review_request')
       shell: bash
       env:
+        BOT_LOGIN: ${{ steps.actor.outputs.login }}
+        CONTEXT_TYPE: ${{ steps.context.outputs.context_type }}
         GH_TOKEN: ${{ inputs.github_token }}
       run: |
-        if [[ -z "${{ steps.actor.outputs.login }}" ]]; then
+        if [[ -z "$BOT_LOGIN" ]]; then
           SUMMARY="Review output verification could not determine the "
           SUMMARY+="review author login for this trigger. Set bot_login "
           SUMMARY+="to enable verification for this review context."
@@ -658,8 +665,8 @@ runs:
 
         set +e
         VERIFY_OUTPUT=$(python3 "${{ github.action_path }}/scripts/verify_review_output.py" \
-          "${{ steps.actor.outputs.login }}" \
-          "${{ steps.context.outputs.context_type }}" \
+          "$BOT_LOGIN" \
+          "$CONTEXT_TYPE" \
           "${{ steps.review_baseline.outputs.path }}" \
           "$REVIEWS_AFTER" 2>&1)
         VERIFY_EXIT=$?

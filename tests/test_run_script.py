@@ -131,7 +131,7 @@ class TestRunScript:
                 )
             )
 
-            subprocess.run(
+            result = subprocess.run(
                 ["bash", str(RUN_SCRIPT)],
                 check=True,
                 capture_output=True,
@@ -154,6 +154,10 @@ class TestRunScript:
             assert data["agents"]["sisyphus"]["variant"] == "max"
             assert "prompt_append" in data["agents"]["sisyphus"]
             assert "Sisyphus" not in data["agents"]
+            assert (
+                "Runtime config: agent=sisyphus provider=github-copilot "
+                "model=claude-opus-4.6 variant=max" in result.stdout
+            )
 
     def test_provider_error_output_fails_run(self):
         with tempfile.TemporaryDirectory() as tmpdir:

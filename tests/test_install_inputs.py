@@ -64,7 +64,7 @@ class TestProviderInstallInputs:
         action_text = ACTION_YAML.read_text()
 
         assert "bot_login:" in action_text
-        assert "Optional GitHub login expected to author review output" in action_text
+        assert "required for pull_request" in action_text
 
     def test_review_output_verification_uses_pagination(self):
         action_text = ACTION_YAML.read_text()
@@ -77,6 +77,26 @@ class TestProviderInstallInputs:
         assert "steps.mode.outputs.value == 'review'" in action_text
         assert "REQUESTED_REVIEWER_LOGIN" in action_text
         assert "REACTION_USER_LOGIN" in action_text
+        assert (
+            action_text.count("steps.context.outputs.context_type == 'pr_opened'") == 3
+        )
+
+    def test_install_receives_token_and_configure_receives_omo_version(self):
+        action_text = ACTION_YAML.read_text()
+
+        install_step = action_text.split("- name: Install", 1)[1].split(
+            "- name: Configure", 1
+        )[0]
+        configure_step = action_text.split("- name: Configure", 1)[1].split(
+            "# === RUN AGENT ===", 1
+        )[0]
+
+        assert "GH_TOKEN: ${{ inputs.github_token }}" in install_step
+        assert "env -u GH_TOKEN" in INSTALL_SCRIPT.read_text()
+        assert (
+            "OH_MY_OPENCODE_VERSION: ${{ steps.version.outputs.oh_my_opencode }}"
+            in configure_step
+        )
 
     def test_review_output_verification_is_folded_into_final_status(self):
         action_text = ACTION_YAML.read_text()
@@ -93,6 +113,49 @@ class TestProviderInstallInputs:
         assert '--zai-coding-plan="${PROVIDER_ZAI_CODING_PLAN:-no}"' in install_text
         assert '--kimi-for-coding="${PROVIDER_KIMI_FOR_CODING:-no}"' in install_text
         assert '--opencode-go="${PROVIDER_OPENCODE_GO:-no}"' in install_text
+
+    def test_install_rejects_bad_release_digest(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+
+            (fake_bin / "uname").write_text(
+                '#!/bin/bash\n[[ "$1" == "-s" ]] && echo Darwin || echo arm64\n'
+            )
+            (fake_bin / "gh").write_text(
+                "#!/bin/bash\n"
+                "printf '%s\\n' "
+                '\'{"assets":[{"name":"opencode-darwin-arm64.zip",'
+                '"browser_download_url":"https://example.invalid/opencode.zip",'
+                '"digest":"sha256:0000000000000000000000000000000000000000000000000000000000000000"}]}\'\n'
+            )
+            (fake_bin / "curl").write_text(
+                "#!/bin/bash\n"
+                "while [[ $# -gt 0 ]]; do\n"
+                '  if [[ "$1" == "-o" ]]; then printf bad > "$2"; exit 0; fi\n'
+                "  shift\n"
+                "done\n"
+            )
+            for command in ("uname", "gh", "curl"):
+                (fake_bin / command).chmod(0o755)
+
+            result = subprocess.run(
+                ["bash", str(INSTALL_SCRIPT)],
+                check=False,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "HOME": str(tmppath / "home"),
+                    "OPENCODE_VERSION": "v1.18.4",
+                    "OH_MY_OPENCODE_VERSION": "v4.19.0",
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                },
+            )
+
+            assert result.returncode != 0
+            assert "Checksum verification failed" in result.stderr
 
     def test_configure_dumps_only_top_level_opencode_config_files(self):
         with tempfile.TemporaryDirectory() as tmpdir:
