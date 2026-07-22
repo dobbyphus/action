@@ -9,6 +9,7 @@ import tempfile
 ACTION_YAML = Path(__file__).parent.parent / "action.yaml"
 INSTALL_SCRIPT = Path(__file__).parent.parent / "scripts" / "install.sh"
 CONFIGURE_SCRIPT = Path(__file__).parent.parent / "scripts" / "configure.sh"
+VERSION_SCRIPT = Path(__file__).parent.parent / "scripts" / "version.sh"
 
 
 class TestProviderInstallInputs:
@@ -97,6 +98,38 @@ class TestProviderInstallInputs:
             "OH_MY_OPENCODE_VERSION: ${{ steps.version.outputs.oh_my_opencode }}"
             in configure_step
         )
+
+    def test_latest_omo_version_comes_from_npm(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+            output = tmppath / "output"
+
+            (fake_bin / "gh").write_text("#!/bin/bash\necho v1.18.4\n")
+            (fake_bin / "curl").write_text(
+                "#!/bin/bash\n"
+                '[[ "$*" == *registry.npmjs.org/oh-my-opencode/latest* ]] '
+                "|| exit 2\n"
+                "printf '%s\\n' '{\"version\":\"4.19.1\"}'\n"
+            )
+            for command in ("gh", "curl"):
+                (fake_bin / command).chmod(0o755)
+
+            subprocess.run(
+                ["bash", str(VERSION_SCRIPT)],
+                check=True,
+                env={
+                    **os.environ,
+                    "GITHUB_OUTPUT": str(output),
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                },
+            )
+
+            assert output.read_text().splitlines() == [
+                "opencode=v1.18.4",
+                "oh_my_opencode=v4.19.1",
+            ]
 
     def test_review_output_verification_is_folded_into_final_status(self):
         action_text = ACTION_YAML.read_text()

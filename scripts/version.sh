@@ -8,7 +8,8 @@ else
 fi
 
 if [[ "${OH_MY_OPENCODE_VERSION:-latest}" == "latest" ]]; then
-  OMO=$(gh api repos/code-yeongyu/oh-my-openagent/releases/latest --jq '.tag_name')
+  OMO="v$(curl -fsSL https://registry.npmjs.org/oh-my-opencode/latest \
+    | jq -er '.version')"
 else
   OMO="${OH_MY_OPENCODE_VERSION}"
 fi
