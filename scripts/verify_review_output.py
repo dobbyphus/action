@@ -1,11 +1,8 @@
-#!/usr/bin/env python3
-
 """Verify review mode produced a new PR review."""
 
 import json
 import sys
 from pathlib import Path
-
 
 REVIEW_CONTEXT_TYPES = {"pr_comment", "pr_opened", "pr_review_request"}
 
@@ -17,7 +14,7 @@ def load_reviews(path: Path) -> list[dict]:
         raise ValueError(f"{path} contains invalid JSON: {exc}") from exc
 
     if not isinstance(data, list):
-        raise ValueError(f"{path} must contain a JSON array")
+        raise TypeError(f"{path} must contain a JSON array")
 
     return [item for item in data if isinstance(item, dict)]
 
@@ -75,7 +72,7 @@ def main() -> None:
             before_path,
             after_path,
         )
-    except ValueError as exc:
+    except (TypeError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 

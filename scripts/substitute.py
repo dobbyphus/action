@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
+import json
 import re
 import sys
-import json
 
 TRANSFORM_LIMIT = 10
 VAR_PATTERN = re.compile(r"\{\{\s*(\w+)\s*\}\}")

@@ -1,10 +1,7 @@
-#!/usr/bin/env python3
-
 import os
-from pathlib import Path
 import subprocess
 import tempfile
-
+from pathlib import Path
 
 ACTION_YAML = Path(__file__).parent.parent / "action.yaml"
 INSTALL_SCRIPT = Path(__file__).parent.parent / "scripts" / "install.sh"
@@ -216,6 +213,73 @@ class TestProviderInstallInputs:
 
             assert "==> " in result.stdout
             assert "opencode.json" in result.stdout
-            assert "oh-my-opencode.json" in result.stdout
+            assert "oh-my-openagent.json" in result.stdout
             assert "ignored.json" not in result.stdout
             assert '{"nested": true}' not in result.stdout
+
+    def test_configure_selects_legacy_omo_config_for_legacy_plugin(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            home = Path(tmpdir) / "home"
+            config_dir = home / ".config" / "opencode"
+            config_dir.mkdir(parents=True)
+            legacy_file = config_dir / "oh-my-opencode.json"
+            legacy_file.write_text(
+                '{"agents": {"sisyphus": {"model": "legacy/model"}}}'
+            )
+            canonical_file = config_dir / "oh-my-openagent.json"
+            canonical_file.write_text(
+                '{"agents": {"sisyphus": {"model": "stale/model"}}}'
+            )
+            (config_dir / "opencode.json").write_text(
+                '{"plugin": ["oh-my-opencode@4.18.0"]}'
+            )
+
+            subprocess.run(
+                ["bash", str(CONFIGURE_SCRIPT)],
+                check=True,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_YAML.parent),
+                    "HOME": str(home),
+                    "AUTH_JSON": '{"github-copilot": {"type": "oauth"}}',
+                    "PROVIDER_ANTHROPIC": "no",
+                    "PROVIDER_COPILOT": "yes",
+                },
+            )
+
+            assert "legacy/model" in legacy_file.read_text()
+            assert "disabled_skills" in legacy_file.read_text()
+            assert "disabled_skills" not in canonical_file.read_text()
+
+    def test_configure_selects_canonical_omo_config_for_config_override(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            home = Path(tmpdir) / "home"
+            config_dir = home / ".config" / "opencode"
+            config_dir.mkdir(parents=True)
+            legacy_file = config_dir / "oh-my-opencode.json"
+            legacy_file.write_text('{"agents": {"sisyphus": {"model": "stale/model"}}}')
+            (config_dir / "opencode.json").write_text(
+                '{"plugin": ["oh-my-opencode@4.18.0"]}'
+            )
+
+            subprocess.run(
+                ["bash", str(CONFIGURE_SCRIPT)],
+                check=True,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_YAML.parent),
+                    "HOME": str(home),
+                    "AUTH_JSON": '{"github-copilot": {"type": "oauth"}}',
+                    "CONFIG_JSON": '{"plugin": ["oh-my-openagent@4.19.1"]}',
+                    "PROVIDER_ANTHROPIC": "no",
+                    "PROVIDER_COPILOT": "yes",
+                },
+            )
+
+            canonical_file = config_dir / "oh-my-openagent.json"
+            assert "disabled_skills" in canonical_file.read_text()
+            assert "disabled_skills" not in legacy_file.read_text()
