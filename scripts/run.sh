@@ -3,7 +3,23 @@ set -uo pipefail
 
 ACTION_PATH="${ACTION_PATH:-.}"
 PROMPT_PATH="${PROMPT_PATH:-.github/prompts}"
-OMO_FILE="$HOME/.config/opencode/oh-my-opencode.json"
+OMO_FILE="$HOME/.config/opencode/oh-my-openagent.json"
+OPENCODE_FILE="$HOME/.config/opencode/opencode.json"
+OMO_PACKAGE=""
+if [[ -f "$OPENCODE_FILE" ]]; then
+  OMO_PACKAGE=$(jq -r '
+    [.plugin[]? | select(type == "string") | split("@")[0]]
+    | if index("oh-my-openagent") then "oh-my-openagent"
+      elif index("oh-my-opencode") then "oh-my-opencode"
+      else empty end
+  ' "$OPENCODE_FILE")
+fi
+if [[ "$OMO_PACKAGE" == "oh-my-opencode" ]]; then
+  OMO_FILE="$HOME/.config/opencode/oh-my-opencode.json"
+elif [[ -z "$OMO_PACKAGE" && ! -f "$OMO_FILE" \
+  && -f "$HOME/.config/opencode/oh-my-opencode.json" ]]; then
+  OMO_FILE="$HOME/.config/opencode/oh-my-opencode.json"
+fi
 
 is_truthy() {
   local value="${1:-}"

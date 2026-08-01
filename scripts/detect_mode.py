@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
 """Detect agent mode from event context."""
 
 import os
 import re
-
 
 # Patterns that indicate an explicit review request.
 # These are matched case-insensitively and require the bot to be mentioned.

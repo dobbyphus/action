@@ -1,10 +1,8 @@
-#!/usr/bin/env python3
 """Resolve a review thread via GraphQL mutation."""
 
 import json
 import subprocess
 import sys
-
 
 RESOLVE_MUTATION = """
 mutation($threadId: ID!) {

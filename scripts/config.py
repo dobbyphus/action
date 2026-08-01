@@ -12,7 +12,7 @@ def read_json_object(path: Path) -> dict:
     except json.JSONDecodeError as exc:
         raise ValueError(f"{path} contains invalid JSON: {exc}") from exc
     if not isinstance(data, dict):
-        raise ValueError(f"{path} must contain a JSON object")
+        raise TypeError(f"{path} must contain a JSON object")
     return data
 
 
@@ -22,7 +22,7 @@ def parse_json_object(value: str, name: str) -> dict:
     except json.JSONDecodeError as exc:
         raise ValueError(f"{name} is invalid JSON: {exc}") from exc
     if not isinstance(data, dict):
-        raise ValueError(f"{name} must be a JSON object")
+        raise TypeError(f"{name} must be a JSON object")
     return data
 
 
@@ -221,7 +221,7 @@ def main():
     auth_json_provided = auth_json is not None
     try:
         auth = build_auth(anthropic_key, openai_key, gemini_key, auth_json)
-    except ValueError as exc:
+    except (TypeError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
@@ -233,7 +233,8 @@ def main():
     config_dir = Path.home() / ".config" / "opencode"
     config_dir.mkdir(parents=True, exist_ok=True)
     config_file = config_dir / "opencode.json"
-    omo_file = config_dir / "oh-my-opencode.json"
+    omo_file = config_dir / "oh-my-openagent.json"
+    legacy_omo_file = config_dir / "oh-my-opencode.json"
 
     override_config = {}
     try:
@@ -244,13 +245,13 @@ def main():
             disabled_providers,
             provider_settings,
         )
-    except ValueError as exc:
+    except (TypeError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     try:
         base_config = read_json_object(config_file) if config_file.exists() else {}
-    except ValueError as exc:
+    except (TypeError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
@@ -264,6 +265,16 @@ def main():
         merged_config = merge_configs(merged_config, override_config)
     config_file.write_text(json.dumps(merged_config, indent=2))
 
+    plugins = merged_config.get("plugin", [])
+    plugin_packages = {
+        entry.split("@", 1)[0] for entry in plugins if isinstance(entry, str)
+    }
+    omo_packages = plugin_packages & {"oh-my-openagent", "oh-my-opencode"}
+    if (
+        "oh-my-opencode" in plugin_packages and "oh-my-openagent" not in plugin_packages
+    ) or (not omo_packages and not omo_file.exists() and legacy_omo_file.exists()):
+        omo_file = legacy_omo_file
+
     omo_defaults = generate_omo_config(
         commit_footer,
         include_co_authored_by,
@@ -274,7 +285,7 @@ def main():
 
     try:
         omo_base = read_json_object(omo_file) if omo_file.exists() else {}
-    except ValueError as exc:
+    except (TypeError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
@@ -283,7 +294,7 @@ def main():
     if omo_config_json:
         try:
             omo_override = parse_json_object(omo_config_json, "OMO_CONFIG_JSON")
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
         merged_omo = merge_configs(merged_omo, omo_override)

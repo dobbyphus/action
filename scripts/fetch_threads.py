@@ -1,11 +1,9 @@
-#!/usr/bin/env python3
 """Fetch unresolved review threads from a pull request via GraphQL."""
 
 import json
 import os
 import subprocess
 import sys
-
 
 QUERY = """
 query($owner: String!, $repo: String!, $number: Int!) {

@@ -1,11 +1,10 @@
-#!/usr/bin/env python3
-
 import json
 import os
 import subprocess
 import tempfile
 from pathlib import Path
 
+import pytest
 
 RUN_SCRIPT = Path(__file__).parent.parent / "scripts" / "run.sh"
 ACTION_PATH = Path(__file__).parent.parent
@@ -102,7 +101,29 @@ class TestRunScript:
             else:
                 log_file.write_text(original)
 
-    def test_prompt_append_preserves_sisyphus_model(self):
+    @pytest.mark.parametrize(
+        ("omo_filename", "plugin", "stale_filename"),
+        [
+            ("oh-my-openagent.json", "oh-my-openagent@4.19.1", None),
+            ("oh-my-opencode.json", "oh-my-opencode@4.18.0", None),
+            (
+                "oh-my-opencode.json",
+                "oh-my-opencode@4.18.0",
+                "oh-my-openagent.json",
+            ),
+            (
+                "oh-my-openagent.json",
+                "oh-my-openagent@4.19.1",
+                "oh-my-opencode.json",
+            ),
+        ],
+    )
+    def test_prompt_append_preserves_sisyphus_model(
+        self,
+        omo_filename,
+        plugin,
+        stale_filename,
+    ):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)
             fake_bin = tmppath / "bin"
@@ -117,7 +138,8 @@ class TestRunScript:
             home = tmppath / "home"
             omo_dir = home / ".config" / "opencode"
             omo_dir.mkdir(parents=True)
-            omo_file = omo_dir / "oh-my-opencode.json"
+            (omo_dir / "opencode.json").write_text(json.dumps({"plugin": [plugin]}))
+            omo_file = omo_dir / omo_filename
             omo_file.write_text(
                 json.dumps(
                     {
@@ -130,6 +152,11 @@ class TestRunScript:
                     }
                 )
             )
+            stale_file = omo_dir / stale_filename if stale_filename else None
+            if stale_file:
+                stale_file.write_text(
+                    '{"agents": {"sisyphus": {"model": "stale/model"}}}'
+                )
 
             result = subprocess.run(
                 ["bash", str(RUN_SCRIPT)],
@@ -154,6 +181,8 @@ class TestRunScript:
             assert data["agents"]["sisyphus"]["variant"] == "max"
             assert "prompt_append" in data["agents"]["sisyphus"]
             assert "Sisyphus" not in data["agents"]
+            if stale_file:
+                assert "prompt_append" not in stale_file.read_text()
             assert (
                 "Runtime config: agent=sisyphus provider=github-copilot "
                 "model=claude-opus-4.6 variant=max" in result.stdout

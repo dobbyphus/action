@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import importlib.util
 import io
 from pathlib import Path
