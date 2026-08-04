@@ -600,6 +600,10 @@ runs:
         SKILL_ENABLE_FRONTEND_UI_UX: ${{ inputs.skill_enable_frontend_ui_ux }}
         GITHUB_TOKEN: ${{ inputs.github_token }}
 
+    - name: Warm provider cache
+      shell: bash
+      run: ${{ github.action_path }}/scripts/warmup.sh
+
     # === RUN AGENT ===
     - name: Run agent
       id: agent
