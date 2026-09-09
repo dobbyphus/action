@@ -256,7 +256,15 @@ def replay_commit(repo: str, original_sha: str, parent_sha: str) -> str | None:
     commit_sha = create_commit(repo, message, tree_sha, parent_sha)
     print(f"    Signed: {commit_sha[:7]}")
 
-    git("fetch", "origin", commit_sha, check=False)
+    git(
+        "-c",
+        "credential.helper=",
+        "-c",
+        "credential.helper=!gh auth git-credential",
+        "fetch",
+        "origin",
+        commit_sha,
+    )
     git("reset", "--hard", commit_sha)
 
     return commit_sha

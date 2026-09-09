@@ -72,6 +72,37 @@ class TestNewBranchOnly:
         assert replay["gh_api"].call_args.kwargs["method"] == "PATCH"
 
 
+class TestReplayFetch:
+    @patch("replay_commits.get_commit_subject", return_value="test")
+    @patch("replay_commits.get_commit_message", return_value="test")
+    @patch("replay_commits.get_changed_files", return_value=["file"])
+    @patch("replay_commits.create_tree", return_value="tree")
+    @patch("replay_commits.create_commit", return_value="signed")
+    @patch("replay_commits.git")
+    def test_fetch_auth_and_failure(self, git, *_):
+        def command(*args, **kwargs):
+            if "fetch" in args:
+                assert args == (
+                    "-c",
+                    "credential.helper=",
+                    "-c",
+                    "credential.helper=!gh auth git-credential",
+                    "fetch",
+                    "origin",
+                    "signed",
+                )
+                assert kwargs.get("check", True)
+                raise subprocess.CalledProcessError(1, "git fetch")
+            return ""
+
+        git.side_effect = command
+        with pytest.raises(subprocess.CalledProcessError):
+            replay_commits.replay_commit("owner/repo", "local", "start")
+        assert not any(
+            call.args == ("reset", "--hard", "signed") for call in git.call_args_list
+        )
+
+
 class TestIsCommitSigned:
     @patch("replay_commits.gh_api")
     def test_signed_commit_returns_true(self, mock_gh_api):
