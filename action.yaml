@@ -99,6 +99,11 @@ inputs:
     required: false
     default: ${{ github.token }}
 
+  replay_new_branch_only:
+    description: Reject existing remote branches during signed commit replay
+    required: false
+    default: "false"
+
   opencode_version:
     description: OpenCode version to install
     required: false
@@ -702,6 +707,7 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github_token }}
+        REPLAY_NEW_BRANCH_ONLY: ${{ inputs.replay_new_branch_only }}
       run: |
         python3 "${{ github.action_path }}/scripts/replay_commits.py" \
           "${{ steps.git.outputs.start_sha }}" \

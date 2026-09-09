@@ -1,10 +1,75 @@
+import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
+import replay_commits
 from replay_commits import body_has_issue_reference, is_commit_signed
+
+
+@pytest.fixture
+def replay(monkeypatch):
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setenv("REPLAY_NEW_BRANCH_ONLY", "true")
+    monkeypatch.setattr(sys, "argv", ["replay_commits.py", "start", "main"])
+    results = {
+        "get_current_branch": "feature",
+        "get_default_branch": "main",
+        "get_commits": ["local"],
+        "get_remote_branch_sha": None,
+        "branch_exists_on_remote": False,
+        "replay_commit": "signed",
+        "create_pull_request": "https://github.com/owner/repo/pull/1",
+        "git": "",
+        "gh_api": "",
+    }
+    mocks = {name: Mock(return_value=value) for name, value in results.items()}
+    for name, mock in mocks.items():
+        monkeypatch.setattr(replay_commits, name, mock)
+    return mocks
+
+
+class TestNewBranchOnly:
+    def test_creates_new_ref(self, replay):
+        assert replay_commits.main() == 0
+        replay["gh_api"].assert_called_once_with(
+            "repos/owner/repo/git/refs",
+            method="POST",
+            input_data={"ref": "refs/heads/feature", "sha": "signed"},
+        )
+
+    def test_rejects_existing_branch_before_replay(self, replay):
+        replay["get_remote_branch_sha"].return_value = "existing"
+        assert replay_commits.main() == 1
+        replay["git"].assert_not_called()
+        replay["replay_commit"].assert_not_called()
+        replay["gh_api"].assert_not_called()
+
+    def test_branch_created_during_replay_never_updates_ref(self, replay):
+        replay["branch_exists_on_remote"].return_value = True
+        replay["gh_api"].side_effect = subprocess.CalledProcessError(1, "gh")
+        with pytest.raises(subprocess.CalledProcessError):
+            replay_commits.main()
+        assert replay["gh_api"].call_args.kwargs["method"] == "POST"
+        replay["gh_api"].assert_called_once()
+        replay["create_pull_request"].assert_not_called()
+
+    @pytest.mark.parametrize("value", ["", "tru", "FALSE"])
+    def test_invalid_policy_fails_closed(self, replay, monkeypatch, value):
+        monkeypatch.setenv("REPLAY_NEW_BRANCH_ONLY", value)
+        assert replay_commits.main() == 1
+        replay["git"].assert_not_called()
+        replay["gh_api"].assert_not_called()
+
+    def test_default_preserves_existing_branch_mode(self, replay, monkeypatch):
+        monkeypatch.delenv("REPLAY_NEW_BRANCH_ONLY")
+        replay["branch_exists_on_remote"].return_value = True
+        assert replay_commits.main() == 0
+        assert replay["gh_api"].call_args.kwargs["method"] == "PATCH"
 
 
 class TestIsCommitSigned:

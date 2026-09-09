@@ -432,6 +432,12 @@ def main() -> int:
     start_branch = sys.argv[2]
     issue_number = sys.argv[3] if len(sys.argv) > 3 else ""
 
+    policy = os.environ.get("REPLAY_NEW_BRANCH_ONLY", "false")
+    if policy not in ("true", "false"):
+        print("REPLAY_NEW_BRANCH_ONLY must be true or false", file=sys.stderr)
+        return 1
+    new_branch_only = policy == "true"
+
     repo = os.environ.get("GITHUB_REPOSITORY")
     if not repo:
         print("GITHUB_REPOSITORY not set", file=sys.stderr)
@@ -469,6 +475,9 @@ def main() -> int:
         return 1
 
     remote_sha = get_remote_branch_sha(repo, current_branch)
+    if new_branch_only and remote_sha:
+        print(f"Remote branch already exists: {current_branch}", file=sys.stderr)
+        return 1
     if remote_sha:
         print(f"Remote branch exists at {remote_sha[:7]}")
         git("fetch", "origin", current_branch, check=False)
@@ -497,7 +506,8 @@ def main() -> int:
         if new_sha:
             parent_sha = new_sha
 
-    is_new_branch = not branch_exists_on_remote(repo, current_branch)
+    # POST creates atomically and rejects a branch claimed during replay.
+    is_new_branch = new_branch_only or not branch_exists_on_remote(repo, current_branch)
 
     if is_new_branch:
         print(f"\nCreating ref {current_branch} -> {parent_sha[:7]}")
