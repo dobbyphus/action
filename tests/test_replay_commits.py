@@ -1,3 +1,5 @@
+import base64
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -84,6 +86,8 @@ class TestReplayFetch:
             if "fetch" in args:
                 assert args == (
                     "-c",
+                    "http.https://github.com/.extraheader=",
+                    "-c",
                     "credential.helper=",
                     "-c",
                     "credential.helper=!gh auth git-credential",
@@ -101,6 +105,63 @@ class TestReplayFetch:
         assert not any(
             call.args == ("reset", "--hard", "signed") for call in git.call_args_list
         )
+
+
+class TestReplayTree:
+    @pytest.mark.parametrize("link_name", ["link", " link\n\r"])
+    def test_uses_index_bytes_and_modes(self, tmp_path, monkeypatch, link_name):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("GIT_CONFIG_GLOBAL", "/dev/null")
+        monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+        replay_commits.git("init", "-q")
+        target = tmp_path / "outside-marker"
+        target.write_text("DO_NOT_PUBLISH")
+        paths = {
+            link_name: ("120000", str(target).encode()),
+            "dangling": ("120000", b"missing"),
+            "executable": ("100755", b"staged\x00\xff\n"),
+            "dir/regular": ("100644", b" regular\n"),
+        }
+        for name, (mode, content) in paths.items():
+            path = tmp_path / name
+            path.parent.mkdir(exist_ok=True)
+            if mode == "120000":
+                path.symlink_to(content.decode())
+            else:
+                path.write_bytes(content)
+                path.chmod(0o755 if mode == "100755" else 0o644)
+            replay_commits.git("add", "--", name)
+        (tmp_path / "executable").write_text("UNSTAGED_DO_NOT_PUBLISH")
+        (tmp_path / "executable").chmod(0o644)
+        files = replay_commits.get_changed_files()
+        assert set(files) == set(paths)
+        blobs, tree = [], []
+
+        def api(endpoint, **kwargs):
+            data = kwargs.get("input_data", {})
+            if endpoint.endswith("/blobs"):
+                blobs.append(base64.b64decode(data["content"]))
+                return json.dumps({"sha": str(len(blobs))})
+            if endpoint.endswith("/trees"):
+                tree.extend(data["tree"])
+                return '{"sha":"tree"}'
+            return "parent-tree"
+
+        monkeypatch.setattr(replay_commits, "gh_api", api)
+        assert (
+            replay_commits.create_tree(
+                "owner/repo", "parent", files + ["deleted", "dir"]
+            )
+            == "tree"
+        )
+        for entry in tree:
+            if entry["path"] in ("deleted", "dir"):
+                assert entry["sha"] is None
+            else:
+                mode, content = paths[entry["path"]]
+                assert entry["mode"] == mode
+                assert blobs[int(entry["sha"]) - 1] == content
+        assert b"DO_NOT_PUBLISH" not in blobs
 
 
 class TestIsCommitSigned:

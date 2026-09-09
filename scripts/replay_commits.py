@@ -160,15 +160,16 @@ def get_commit_subject(sha: str) -> str:
 
 
 def get_changed_files() -> list[str]:
-    output = git("diff", "--cached", "--name-only")
-    return [f for f in output.split("\n") if f]
+    output = subprocess.check_output(
+        ["git", "diff", "--cached", "--name-only", "--no-renames", "-z"]
+    )
+    return output.decode("utf-8").split("\0")[:-1]
 
 
-def create_blob(repo: str, file_path: str) -> str | None:
-    path = Path(file_path)
-    if not path.exists():
-        return None
-    content = base64.b64encode(path.read_bytes()).decode("ascii")
+def create_blob(repo: str, object_sha: str) -> str:
+    content = base64.b64encode(
+        subprocess.check_output(["git", "cat-file", "blob", object_sha])
+    ).decode("ascii")
     response = gh_api(
         f"repos/{repo}/git/blobs",
         method="POST",
@@ -177,22 +178,26 @@ def create_blob(repo: str, file_path: str) -> str | None:
     return json.loads(response)["sha"]
 
 
-def get_file_mode(file_path: str) -> str:
-    path = Path(file_path)
-    if path.exists() and os.access(path, os.X_OK):
-        return "100755"
-    return "100644"
-
-
 def create_tree(repo: str, parent_sha: str, files: list[str]) -> str:
     parent_tree = gh_api(f"repos/{repo}/git/commits/{parent_sha}", jq=".tree.sha")
 
     tree_entries: list[dict] = []
     for file_path in files:
-        blob_sha = create_blob(repo, file_path)
+        staged = subprocess.check_output(
+            ["git", "ls-files", "--stage", "-z", "--", f":(literal){file_path}"]
+        ).decode("utf-8")
+        mode, blob_sha = "100644", None
+        for record in staged.split("\0")[:-1]:
+            metadata, path = record.split("\t", 1)
+            if path != file_path:
+                continue
+            mode, object_sha, stage = metadata.split()
+            if stage != "0" or mode not in ("100644", "100755", "120000"):
+                raise ValueError(f"Unsupported index entry: {file_path}")
+            blob_sha = create_blob(repo, object_sha)
         entry: dict = {
             "path": file_path,
-            "mode": get_file_mode(file_path),
+            "mode": mode,
             "type": "blob",
             "sha": blob_sha,
         }
@@ -256,7 +261,10 @@ def replay_commit(repo: str, original_sha: str, parent_sha: str) -> str | None:
     commit_sha = create_commit(repo, message, tree_sha, parent_sha)
     print(f"    Signed: {commit_sha[:7]}")
 
+    server = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/") + "/"
     git(
+        "-c",
+        f"http.{server}.extraheader=",
         "-c",
         "credential.helper=",
         "-c",
