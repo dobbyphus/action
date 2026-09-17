@@ -22,7 +22,7 @@ inputs:
   bot_login:
     description: >-
       GitHub login expected to author review output; required for pull_request
-      review events when automatic detection is unavailable
+      and pull_request_target events without a requested reviewer
     required: false
     default: ""
 
@@ -179,6 +179,7 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github_token }}
+        INPUT_BOT_LOGIN: ${{ inputs.bot_login }}
         INPUT_PROMPT: ${{ github.event.inputs.prompt }}
         PR_TITLE_EVENT: ${{ github.event.pull_request.title }}
         REVIEW_BODY: ${{ github.event.review.body }}
@@ -207,7 +208,12 @@ runs:
           PR_TITLE=""
           PR_AUTHOR=""
 
-        elif [[ "$EVENT" == "pull_request" ]]; then
+        elif [[ "$EVENT" == "pull_request" || "$EVENT" == "pull_request_target" ]]; then
+          if [[ -z "$INPUT_BOT_LOGIN" && -z "$REQUESTED_REVIEWER_LOGIN" ]]; then
+            echo "::error::Set bot_login for PR reviews without a requested reviewer." >&2
+            exit 1
+          fi
+
           NUM="${{ github.event.pull_request.number }}"
           AUTHOR="${{ github.event.sender.login }}"
           COMMENT_ID=""

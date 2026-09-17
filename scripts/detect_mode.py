@@ -62,7 +62,7 @@ def detect_mode(
     """Detect the effective mode based on event context.
 
     Priority:
-    1. pull_request event (reviewer assigned) → review
+    1. pull_request or pull_request_target event → review
     2. Comment contains @bot_name + "review" → review
     3. Explicit input_mode (if not default "agent") → input_mode
     4. Default → agent
@@ -77,8 +77,8 @@ def detect_mode(
     Returns:
         The detected mode: "agent" or "review"
     """
-    # Assigned as reviewer - use review mode
-    if event_name == "pull_request":
+    # PR lifecycle events - use review mode
+    if event_name in ("pull_request", "pull_request_target"):
         return "review"
 
     # Check comment/review body for review request

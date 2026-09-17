@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from detect_mode import detect_mode, is_review_request
@@ -140,10 +142,11 @@ Thanks!"""
 class TestDetectMode:
     """Tests for detect_mode function."""
 
-    def test_pull_request_event_always_review(self):
+    @pytest.mark.parametrize("event_name", ["pull_request", "pull_request_target"])
+    def test_pull_request_event_always_review(self, event_name: str) -> None:
         # Assigned as reviewer - always review mode
         result = detect_mode(
-            event_name="pull_request",
+            event_name=event_name,
             input_mode="agent",
             bot_name="dobbyphus",
             comment_body="",

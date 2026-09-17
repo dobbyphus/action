@@ -74,7 +74,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | Input | Default | Description |
 |-------|---------|-------------|
 | `bot_name` | `ai-agent` | Bot name for labels and mentions |
-| `bot_login` | `""` | Review author login; required for `pull_request` review events when it cannot be inferred |
+| `bot_login` | `""` | Review author login; required for `pull_request` and `pull_request_target` events without a requested reviewer |
 | `mention_users` | `false` | Whether to @mention users in comments (reduces notification noise when false) |
 | `anthropic_api_key` | - | Anthropic API key |
 | `openai_api_key` | - | OpenAI API key |
@@ -127,6 +127,12 @@ The action supports two modes via the `mode` input:
 | `agent` | Issue comments, PR comments, workflow dispatch | Work on requests, make changes |
 | `review` | PR review requests and review comments | Review code, provide feedback |
 
+`pull_request` and `pull_request_target` always select `review`, including
+`labeled`, `opened`, and `synchronize` activities. This takes precedence over
+the `mode` input, even a custom mode such as `triage`. For other events, an
+explicit `@bot review` command takes precedence over `mode`; otherwise the
+action uses the supplied mode, defaulting to `agent`.
+
 ### Trigger Conditions
 
 Use job-level `if` to control when the agent runs. The example covers:
@@ -136,6 +142,66 @@ Use job-level `if` to control when the agent runs. The example covers:
 - `pull_request`: Review requested / reviewer assigned
 - `pull_request_review`: @mention in review body
 - `pull_request_review_comment`: @mention in inline diff comment
+
+### Label reviews with `pull_request_target`
+
+For label-driven reviews using the default-branch workflow, configure both
+`on.pull_request_target` and a matching job condition. This is an optional
+alternative to the quick-start triggers.
+
+`pull_request_target` can access repository secrets and write credentials,
+including for fork PRs. The caller must authorize the request and control
+what the agent reads and executes. Do not check out or execute untrusted PR
+head code in a privileged job. Keep the action, workspace, agent configuration,
+prompt templates, and base snippets on trusted revisions. In particular,
+consumer files under `prompt_path` override bundled prompts and base snippets;
+checking out a trusted copy of the action alone does not protect those inputs.
+Treat PR titles, descriptions, and diffs as untrusted data.
+
+This example accepts `ai-review` labels only on open, same-repository PRs and
+checks out the trusted workflow commit. The same-repository guard excludes
+forks; it does not make unreviewed branch contents trusted. Inspect the PR with
+commands such as `gh pr diff` rather than switching the workspace to its head.
+Replace `REVIEWED_ACTION_SHA` with a reviewed commit supporting this event.
+
+```yaml
+name: Label review
+
+"on":
+  pull_request_target:
+    types: [labeled]
+
+jobs:
+  review:
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'ai-review' &&
+      github.event.pull_request.state == 'open' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: dobbyphus/action@REVIEWED_ACTION_SHA
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          bot_name: ai-agent
+          bot_login: github-actions[bot]
+          prompt_path: ${{ github.workspace }}/.github/prompts
+```
+
+The absolute `prompt_path` points into the trusted checkout. If those files
+are absent, the action falls back to its bundled prompts. Set `bot_login` to
+the account that will actually post the review: `github-actions[bot]` for the
+default token, or your app's login when supplying an app token.
 
 ### Branch & PR Workflow
 
@@ -174,9 +240,12 @@ Set these in Settings → Secrets and variables → Variables:
 | `BOT_NAME` | `ai-agent` | Bot mention trigger and label prefix |
 | `BOT_LOGIN` | `github-actions[bot]` | Bot login to prevent self-triggering |
 
-`pull_request` review events do not identify the review author. Pass
-`bot_login` explicitly so the action can verify that review mode posted a new
-PR review.
+For `pull_request` and `pull_request_target`, the action resolves the review
+author from `bot_login`, falling back to `requested_reviewer.login` when
+present. Label, open, and synchronize events have no requested reviewer, so
+pass `bot_login` explicitly. If neither value is available, context collection
+fails immediately, before running the agent. Review-output verification
+remains mandatory.
 
 ## Authentication
 
