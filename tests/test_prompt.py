@@ -88,10 +88,8 @@ class TestGitHubActionPromptGuidance:
             "NEVER end a response while background tasks are still pending"
             in github_env
         )
-        assert (
-            "Only launch background tasks if you can collect their results"
-            in github_env
-        )
+        assert "background_output(task_id=..., block=true)" in github_env
+        assert "run_in_background=false" in github_env
 
     def test_agent_prompt_mentions_github_actions_exception(self):
         agent_prompt = (
@@ -101,15 +99,13 @@ class TestGitHubActionPromptGuidance:
         assert "Exception: in GitHub Actions one-shot runs" in agent_prompt
         assert "do not finish with pending background tasks" in agent_prompt
 
-    def test_review_requires_synchronous_execution(self):
+    def test_review_permits_background_with_in_turn_collection(self):
         review_prompt = (
             Path(__file__).parent.parent / "prompts" / "review.md"
         ).read_text()
 
-        assert (
-            "Do not launch background tasks or subagents. Complete the review synchronously."
-            in review_prompt
-        )
+        assert "background_output(task_id=..., block=true)" in review_prompt
+        assert "run_in_background=false" in review_prompt
 
     def test_review_required_steps_include_pr_diff(self):
         review_prompt = (
