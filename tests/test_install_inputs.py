@@ -96,14 +96,19 @@ class TestProviderInstallInputs:
             in configure_step
         )
 
-    def test_configure_receives_detected_mode(self):
+    def test_configure_does_not_receive_mode(self):
         action_text = ACTION_YAML.read_text()
 
         configure_step = action_text.split("- name: Configure", 1)[1].split(
             "# === RUN AGENT ===", 1
         )[0]
+        run_agent_step = action_text.split("- name: Run agent", 1)[1].split(
+            "- name: Verify review output", 1
+        )[0]
 
-        assert "MODE: ${{ steps.mode.outputs.value }}" in configure_step
+        # MODE belongs to prompt selection in the Run step, not config generation.
+        assert "MODE: ${{ steps.mode.outputs.value }}" not in configure_step
+        assert "MODE: ${{ steps.mode.outputs.value }}" in run_agent_step
 
     def test_latest_omo_version_comes_from_npm(self):
         with tempfile.TemporaryDirectory() as tmpdir:
