@@ -96,6 +96,15 @@ class TestProviderInstallInputs:
             in configure_step
         )
 
+    def test_configure_receives_detected_mode(self):
+        action_text = ACTION_YAML.read_text()
+
+        configure_step = action_text.split("- name: Configure", 1)[1].split(
+            "# === RUN AGENT ===", 1
+        )[0]
+
+        assert "MODE: ${{ steps.mode.outputs.value }}" in configure_step
+
     def test_latest_omo_version_comes_from_npm(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)
