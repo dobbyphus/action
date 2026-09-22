@@ -100,7 +100,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | `config_json` | - | Full opencode.json content (advanced) |
 | `enabled_providers` | - | JSON array of provider IDs to enable |
 | `disabled_providers` | - | JSON array of provider IDs to disable |
-| `omo_config_json` | - | Full oh-my-openagent.json content (advanced). In review mode the delegation-tool gate entries are appended to `disabled_tools` after this input is merged |
+| `omo_config_json` | - | Full oh-my-openagent.json content (advanced) |
 | `auth_json` | - | Full auth.json content (advanced) |
 | `agent_keywords` | `ultrawork` | Keywords to prepend for agent mode (triggers oh-my-opencode modes) |
 | `review_keywords` | `analyze` | Keywords to prepend for review mode (triggers oh-my-opencode modes) |
@@ -133,23 +133,23 @@ the `mode` input, even a custom mode such as `triage`. For other events, an
 explicit `@bot review` command takes precedence over `mode`; otherwise the
 action uses the supplied mode, defaulting to `agent`.
 
-#### Review mode is synchronous
+#### Review runs must finish their own work
 
-A review run is one-shot: it has no way to collect work that was deferred to a
-background task, so a delegated analysis can leave the session idle with no
-review posted. Rather than discouraging delegation in the prompt, the action
-removes the tools. For review mode it appends 16 names to the oh-my-openagent
-`disabled_tools` list: `task`, `call_omo_agent`, `background_output`,
-`background_cancel`, and all twelve `team_*` tools. The task-tracking tools
-`task_create`, `task_get`, `task_list`, and `task_update` stay available, since
-they track work rather than defer it.
+A run is one-shot. Once the agent's response ends there is no follow-up turn
+and no `<system-reminder>` notification, so anything still pending is simply
+lost. That is how a delegated review analysis could leave the session idle
+with no review posted at all.
 
-The gate is applied after `omo_config_json` is merged, so your own
-`disabled_tools` entries are preserved while the gate itself cannot be removed.
-There is no opt-out input. Review runs also export
-`OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=false`, because opencode's own
-`task` tool falls back to the broader `OPENCODE_EXPERIMENTAL` setting when that
-variable is unset. Agent mode is unaffected and keeps full delegation.
+No tools are removed and no environment flag is set. Delegation stays fully
+available in every mode, and your own `omo_config_json` `disabled_tools`
+entries pass through untouched. The constraint lives in the prompts instead:
+the agent may spawn background agents and keep working while they run, but it
+must collect every result before finishing, either by delegating synchronously
+with `run_in_background=false` or by collecting in-turn with
+`background_output(task_id=..., block=true)`. The non-obvious part is that the
+prompts have to explicitly override the `background_output` tool's own
+instruction to wait for a `<system-reminder>` before collecting, because in a
+one-shot run that notification never arrives.
 
 Review output is deterministic. A run submits exactly one review: any `BLOCKER`
 finding means `--request-changes`, otherwise `--approve` with the body phrase
