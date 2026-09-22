@@ -24,7 +24,7 @@ Review PR #{{ pr_number }}: {{ pr_title }}
 3. **CREATE TODOS IMMEDIATELY AFTER READING** using todo tools.
 4. If you post any interim comment, include requirements + TODOs explicitly.
 5. **Review only. Do not edit files, commit, or push.**
-6. **Background delegation is allowed, but NEVER end your response while any background task is pending.** Either delegate synchronously (`run_in_background=false`), or collect every result in this same turn with `background_output(task_id=..., block=true)` — do NOT wait for a `<system-reminder>` notification; this is a one-shot run and it never arrives. You may do other review work while a background task runs, but collect before finishing.
+6. **Background delegation is allowed, but NEVER end your response while any background task is pending.** Either delegate synchronously (`run_in_background=false`), or collect every result in this same turn with `background_output(task_id=..., block=true)` — do NOT wait for a `<system-reminder>` notification; this is a one-shot run and it never arrives. A blocking collect that returns pending or times out is not a result: collect again, or `background_cancel` that task and do its work yourself. You may do other review work while a task runs, but every task must reach a terminal state before you submit the review.
 
 ## Getting Started
 

@@ -107,6 +107,25 @@ class TestGitHubActionPromptGuidance:
         assert "background_output(task_id=..., block=true)" in review_prompt
         assert "run_in_background=false" in review_prompt
 
+    def test_prompts_require_terminal_state_for_background_tasks(self):
+        prompts_dir = Path(__file__).parent.parent / "prompts"
+        github_env = (prompts_dir / "base" / "github_env.md").read_text()
+        review_prompt = (prompts_dir / "review.md").read_text()
+
+        for text in (github_env, review_prompt):
+            assert "background_cancel" in text
+
+        # The action cannot know the caller's job timeout, so it must not
+        # recommend a fixed ceiling.
+        assert "600000" not in github_env
+
+    def test_github_env_override_is_not_scoped_to_one_tool(self):
+        github_env = (
+            Path(__file__).parent.parent / "prompts" / "base" / "github_env.md"
+        ).read_text()
+
+        assert "any tool, agent, or skill" in github_env
+
     def test_review_required_steps_include_pr_diff(self):
         review_prompt = (
             Path(__file__).parent.parent / "prompts" / "review.md"
