@@ -86,6 +86,14 @@ if [[ -n "$KEYWORDS" ]]; then
   TEMPLATE="${KEYWORDS}"$'\n'"${TEMPLATE}"
 fi
 
+# Review mode must complete synchronously. Disabling oh-my-opencode's task
+# tool uncovers opencode's native one, which only rejects background:true
+# when this flag is explicitly false; unset, it falls back to
+# OPENCODE_EXPERIMENTAL.
+if [[ "${MODE:-}" == "review" ]]; then
+  export OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=false
+fi
+
 FINAL=$("$SUBSTITUTE_SCRIPT" "$VARS" <<< "$TEMPLATE")
 FORMAT_SCRIPT="$ACTION_PATH/scripts/format_output.py"
 PRINT_LOG_ARGS=()
