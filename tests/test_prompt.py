@@ -72,6 +72,12 @@ class TestFindPromptFile:
 
 
 class TestGitHubActionPromptGuidance:
+    @staticmethod
+    def required_first_steps(review_prompt: str) -> str:
+        return review_prompt.split("## Required First Steps", 1)[1].split(
+            "## Getting Started", 1
+        )[0]
+
     def test_github_env_warns_about_one_shot_background_tasks(self):
         github_env = (
             Path(__file__).parent.parent / "prompts" / "base" / "github_env.md"
@@ -94,3 +100,41 @@ class TestGitHubActionPromptGuidance:
 
         assert "Exception: in GitHub Actions one-shot runs" in agent_prompt
         assert "do not finish with pending background tasks" in agent_prompt
+
+    def test_review_requires_synchronous_execution(self):
+        review_prompt = (
+            Path(__file__).parent.parent / "prompts" / "review.md"
+        ).read_text()
+
+        assert (
+            "Do not launch background tasks or subagents. Complete the review synchronously."
+            in review_prompt
+        )
+
+    def test_review_required_steps_include_pr_diff(self):
+        review_prompt = (
+            Path(__file__).parent.parent / "prompts" / "review.md"
+        ).read_text()
+        required_steps = self.required_first_steps(review_prompt)
+
+        assert "gh pr diff {{ pr_number }}" in required_steps
+
+    def test_review_required_steps_forbid_file_changes(self):
+        review_prompt = (
+            Path(__file__).parent.parent / "prompts" / "review.md"
+        ).read_text()
+        required_steps = self.required_first_steps(review_prompt)
+
+        assert "Review only. Do not edit files, commit, or push." in required_steps
+
+    def test_review_output_is_deterministic(self):
+        review_prompt = (
+            Path(__file__).parent.parent / "prompts" / "review.md"
+        ).read_text()
+        output = review_prompt.split("## Output\n", 1)[1]
+
+        assert "--request-changes" in output
+        assert "--approve" in output
+        assert "--comment" in output
+        assert "exactly one" in output
+        assert "No blocking issues found." in review_prompt

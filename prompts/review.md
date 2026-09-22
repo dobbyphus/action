@@ -18,10 +18,13 @@ Review PR #{{ pr_number }}: {{ pr_title }}
    gh pr view {{ pr_number }} --comments
    gh api repos/{{ repository }}/pulls/{{ pr_number }}/comments
    gh api repos/{{ repository }}/pulls/{{ pr_number }}/reviews
+   gh pr diff {{ pr_number }}
    ```
 2. Capture prior decisions, feedback, and unresolved concerns before reviewing.
 3. **CREATE TODOS IMMEDIATELY AFTER READING** using todo tools.
 4. If you post any interim comment, include requirements + TODOs explicitly.
+5. **Review only. Do not edit files, commit, or push.**
+6. **Do not launch background tasks or subagents. Complete the review synchronously.**
 
 ## Getting Started
 
@@ -110,20 +113,44 @@ reference commit SHAs (they change when replayed as signed commits).
 
 ## Output
 
+When submitting a PR review, submit exactly one.
+
+If any finding is labelled `BLOCKER`, request changes:
+
 ```bash
-gh pr review {{ pr_number }} --comment --body "$(cat <<'EOF'
+gh pr review {{ pr_number }} --request-changes --body "$(cat <<'EOF'
 ## Code Review
 
 ### Summary
 [1-2 sentence overview]
 
 ### Issues Found
-[List issues with severity, or "No issues found"]
+[List BLOCKER and NON-BLOCKER issues]
 
 ### Verdict
-[APPROVE / REQUEST_CHANGES / COMMENT]
+REQUEST_CHANGES
 EOF
 )"
 ```
 
-Use `--request-changes` or `--approve` instead of `--comment` as appropriate.
+If there are zero blockers, approve:
+
+```bash
+gh pr review {{ pr_number }} --approve --body "$(cat <<'EOF'
+## Code Review
+
+### Summary
+No blocking issues found.
+
+### Issues Found
+[List NON-BLOCKER issues, or "No issues found"]
+
+### Verdict
+APPROVE
+EOF
+)"
+```
+
+If GitHub rejects `--approve` or `--request-changes` (for example, because the
+PR was authored by this same bot), submit the identical body with `--comment`
+instead so a review is still posted.
