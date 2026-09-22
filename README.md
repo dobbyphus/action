@@ -100,7 +100,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | `config_json` | - | Full opencode.json content (advanced) |
 | `enabled_providers` | - | JSON array of provider IDs to enable |
 | `disabled_providers` | - | JSON array of provider IDs to disable |
-| `omo_config_json` | - | Full oh-my-openagent.json content (advanced) |
+| `omo_config_json` | - | Full oh-my-openagent.json content (advanced). In review mode the delegation-tool gate entries are appended to `disabled_tools` after this input is merged |
 | `auth_json` | - | Full auth.json content (advanced) |
 | `agent_keywords` | `ultrawork` | Keywords to prepend for agent mode (triggers oh-my-opencode modes) |
 | `review_keywords` | `analyze` | Keywords to prepend for review mode (triggers oh-my-opencode modes) |
@@ -132,6 +132,31 @@ The action supports two modes via the `mode` input:
 the `mode` input, even a custom mode such as `triage`. For other events, an
 explicit `@bot review` command takes precedence over `mode`; otherwise the
 action uses the supplied mode, defaulting to `agent`.
+
+#### Review mode is synchronous
+
+A review run is one-shot: it has no way to collect work that was deferred to a
+background task, so a delegated analysis can leave the session idle with no
+review posted. Rather than discouraging delegation in the prompt, the action
+removes the tools. For review mode it appends 16 names to the oh-my-openagent
+`disabled_tools` list: `task`, `call_omo_agent`, `background_output`,
+`background_cancel`, and all twelve `team_*` tools. The task-tracking tools
+`task_create`, `task_get`, `task_list`, and `task_update` stay available, since
+they track work rather than defer it.
+
+The gate is applied after `omo_config_json` is merged, so your own
+`disabled_tools` entries are preserved while the gate itself cannot be removed.
+There is no opt-out input. Review runs also export
+`OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=false`, because opencode's own
+`task` tool falls back to the broader `OPENCODE_EXPERIMENTAL` setting when that
+variable is unset. Agent mode is unaffected and keeps full delegation.
+
+Review output is deterministic. A run submits exactly one review: any `BLOCKER`
+finding means `--request-changes`, otherwise `--approve` with the body phrase
+`No blocking issues found.` If GitHub rejects approve or request-changes, for
+example on a PR the bot authored itself, since GitHub forbids self-approval,
+the review prompt directs the agent to resubmit the same body with `--comment`
+so a review is still posted.
 
 ### Trigger Conditions
 
