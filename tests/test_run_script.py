@@ -224,7 +224,7 @@ class TestRunScript:
             )
             assert state["failed"] is True
 
-    def test_review_mode_exports_background_subagents_flag(self):
+    def test_review_mode_leaves_background_subagents_unset(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)
             fake_bin = tmppath / "bin"
@@ -245,42 +245,7 @@ class TestRunScript:
                 "PROMPT_VARS": "{}",
                 "FORMAT_OUTPUT": "false",
                 "MODE": "review",
-                "PATH": f"{fake_bin}:{os.environ['PATH']}",
-            }
-            env.pop("OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS", None)
-
-            result = subprocess.run(
-                ["bash", str(RUN_SCRIPT)],
-                check=True,
-                capture_output=True,
-                text=True,
-                env=env,
-            )
-
-            assert "BG_SUBAGENTS=false" in result.stdout
-
-    def test_agent_mode_leaves_background_subagents_unset(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmppath = Path(tmpdir)
-            fake_bin = tmppath / "bin"
-            fake_bin.mkdir()
-
-            fake_opencode = fake_bin / "opencode"
-            fake_opencode.write_text(
-                "#!/bin/bash\n"
-                "printf 'fake opencode %s\\n' \"$*\"\n"
-                "printf 'BG_SUBAGENTS=%s\\n' \"${OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS:-unset}\"\n"
-            )
-            fake_opencode.chmod(0o755)
-
-            env = {
-                **os.environ,
-                "ACTION_PATH": str(ACTION_PATH),
-                "PROMPT": "Reply with the single word OK.",
-                "PROMPT_VARS": "{}",
-                "FORMAT_OUTPUT": "false",
-                "MODE": "agent",
-                "AGENT_KEYWORDS": "",
+                "REVIEW_KEYWORDS": "",
                 "PATH": f"{fake_bin}:{os.environ['PATH']}",
             }
             env.pop("OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS", None)
