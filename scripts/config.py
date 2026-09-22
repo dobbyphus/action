@@ -125,42 +125,6 @@ def build_auth(
     return merge_configs(auth, auth_override)
 
 
-# oh-my-opencode registry keys for delegation, background collection, and
-# team-mode spawning. Review runs are one-shot: removing these tools is what
-# makes it impossible to defer work past the end of the turn.
-REVIEW_GATED_TOOLS = (
-    "task",
-    "call_omo_agent",
-    "background_output",
-    "background_cancel",
-    "team_create",
-    "team_delete",
-    "team_shutdown_request",
-    "team_approve_shutdown",
-    "team_reject_shutdown",
-    "team_send_message",
-    "team_task_create",
-    "team_task_list",
-    "team_task_update",
-    "team_task_get",
-    "team_status",
-    "team_list",
-)
-
-
-def apply_review_tool_gate(config: dict, mode: str | None) -> dict:
-    if mode != "review":
-        return config
-
-    existing = config.get("disabled_tools")
-    current = list(existing) if isinstance(existing, list) else []
-    updated = config.copy()
-    updated["disabled_tools"] = current + [
-        tool for tool in REVIEW_GATED_TOOLS if tool not in current
-    ]
-    return updated
-
-
 def generate_omo_config(
     commit_footer: str | None = None,
     include_co_authored_by: str | None = None,
@@ -241,7 +205,6 @@ def main():
         "provider_opencode_go": os.environ.get("PROVIDER_OPENCODE_GO"),
     }
     omo_config_json = os.environ.get("OMO_CONFIG_JSON")
-    mode = os.environ.get("MODE")
     primary_override = os.environ.get("PRIMARY_MODEL")
     if primary_override is not None and not primary_override.strip():
         primary_override = None
@@ -335,8 +298,6 @@ def main():
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
         merged_omo = merge_configs(merged_omo, omo_override)
-
-    merged_omo = apply_review_tool_gate(merged_omo, mode)
 
     omo_file.write_text(json.dumps(merged_omo, indent=2))
 

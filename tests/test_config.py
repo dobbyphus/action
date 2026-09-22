@@ -8,25 +8,6 @@ from pathlib import Path
 
 CONFIG_SCRIPT = Path(__file__).parent.parent / "scripts" / "config.py"
 
-REVIEW_GATED_TOOLS = [
-    "task",
-    "call_omo_agent",
-    "background_output",
-    "background_cancel",
-    "team_create",
-    "team_delete",
-    "team_shutdown_request",
-    "team_approve_shutdown",
-    "team_reject_shutdown",
-    "team_send_message",
-    "team_task_create",
-    "team_task_list",
-    "team_task_update",
-    "team_task_get",
-    "team_status",
-    "team_list",
-]
-
 
 def load_config_module():
     config_path = Path(__file__).parent.parent / "scripts" / "config.py"
@@ -334,55 +315,7 @@ class TestPinOmoPlugin:
         assert pin_omo_plugin(original, "v4.19.0") == original
 
 
-class TestApplyReviewToolGate:
-    def test_review_mode_disables_all_gate_tools(self):
-        result = config.apply_review_tool_gate({}, "review")
-
-        assert result["disabled_tools"] == REVIEW_GATED_TOOLS
-
-    def test_agent_mode_returns_config_unchanged(self):
-        result = config.apply_review_tool_gate({"git_master": {}}, "agent")
-
-        assert "disabled_tools" not in result
-
-    def test_missing_mode_returns_config_unchanged(self):
-        result = config.apply_review_tool_gate({"git_master": {}}, None)
-
-        assert "disabled_tools" not in result
-
-    def test_union_preserves_user_entries(self):
-        result = config.apply_review_tool_gate(
-            {"disabled_tools": ["look_at"]}, "review"
-        )
-
-        assert result["disabled_tools"] == ["look_at"] + REVIEW_GATED_TOOLS
-
-    def test_idempotent(self):
-        once = config.apply_review_tool_gate({}, "review")
-        twice = config.apply_review_tool_gate(once, "review")
-
-        assert twice == once
-
-    def test_existing_gate_entry_not_duplicated(self):
-        result = config.apply_review_tool_gate({"disabled_tools": ["task"]}, "review")
-
-        assert result["disabled_tools"].count("task") == 1
-        assert len(result["disabled_tools"]) == len(REVIEW_GATED_TOOLS)
-
-    def test_non_list_disabled_tools_replaced(self):
-        result = config.apply_review_tool_gate({"disabled_tools": "task"}, "review")
-
-        assert result["disabled_tools"] == REVIEW_GATED_TOOLS
-
-    def test_does_not_mutate_input(self):
-        original = {"disabled_tools": ["look_at"]}
-
-        config.apply_review_tool_gate(original, "review")
-
-        assert original == {"disabled_tools": ["look_at"]}
-
-
-class TestMainReviewGate:
+class TestMainDelegationTools:
     def run_config(self, home: str, **overrides: str) -> dict:
         env = {
             "PATH": os.environ["PATH"],
@@ -400,7 +333,13 @@ class TestMainReviewGate:
         omo_file = Path(home) / ".config" / "opencode" / "oh-my-openagent.json"
         return json.loads(omo_file.read_text())
 
-    def test_review_mode_gate_survives_user_override(self):
+    def test_review_mode_keeps_delegation_tools_enabled(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            generated = self.run_config(tmpdir, MODE="review")
+
+        assert "disabled_tools" not in generated
+
+    def test_review_mode_preserves_user_disabled_tools(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             generated = self.run_config(
                 tmpdir,
@@ -408,11 +347,4 @@ class TestMainReviewGate:
                 OMO_CONFIG_JSON='{"disabled_tools": ["look_at"]}',
             )
 
-        assert generated["disabled_tools"] == ["look_at"] + REVIEW_GATED_TOOLS
-
-    def test_agent_mode_keeps_delegation_tools(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            generated = self.run_config(tmpdir, MODE="agent")
-
-        disabled = generated.get("disabled_tools", [])
-        assert [tool for tool in REVIEW_GATED_TOOLS if tool in disabled] == []
+        assert generated["disabled_tools"] == ["look_at"]
