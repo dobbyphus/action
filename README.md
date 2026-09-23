@@ -95,6 +95,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | `prompt_path` | `.github/prompts` | Path to prompts directory |
 | `prompt_vars` | - | JSON object for template substitution |
 | `github_token` | `github.token` | GitHub token for API access |
+| `replay_new_branch_only` | `false` | Signed replay creates a new remote branch only; existing branches and concurrent name collisions fail without updating the ref. Does not restrict the agent's own GitHub commands. |
 | `opencode_version` | `latest` | OpenCode version to install |
 | `oh_my_opencode_version` | `latest` | oh-my-opencode version to install |
 | `config_json` | - | Full opencode.json content (advanced) |
