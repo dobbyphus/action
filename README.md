@@ -133,6 +133,31 @@ the `mode` input, even a custom mode such as `triage`. For other events, an
 explicit `@bot review` command takes precedence over `mode`; otherwise the
 action uses the supplied mode, defaulting to `agent`.
 
+#### Review runs must finish their own work
+
+A run is one-shot. Once the agent's response ends there is no follow-up turn
+and no `<system-reminder>` notification, so anything still pending is simply
+lost. That is how a delegated review analysis could leave the session idle
+with no review posted at all.
+
+No tools are removed and no environment flag is set. Delegation stays fully
+available in every mode, and your own `omo_config_json` `disabled_tools`
+entries pass through untouched. The constraint lives in the prompts instead:
+the agent may spawn background agents and keep working while they run, but it
+must collect every result before finishing, either by delegating synchronously
+with `run_in_background=false` or by collecting in-turn with
+`background_output(task_id=..., block=true)`. The non-obvious part is that the
+prompts have to explicitly override the `background_output` tool's own
+instruction to wait for a `<system-reminder>` before collecting, because in a
+one-shot run that notification never arrives.
+
+Review output is deterministic. A run submits exactly one review: any `BLOCKER`
+finding means `--request-changes`, otherwise `--approve` with the body phrase
+`No blocking issues found.` If GitHub rejects approve or request-changes, for
+example on a PR the bot authored itself, since GitHub forbids self-approval,
+the review prompt directs the agent to resubmit the same body with `--comment`
+so a review is still posted.
+
 ### Trigger Conditions
 
 Use job-level `if` to control when the agent runs. The example covers:

@@ -1,5 +1,12 @@
 import importlib.util
+import json
+import os
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
+
+CONFIG_SCRIPT = Path(__file__).parent.parent / "scripts" / "config.py"
 
 
 def load_config_module():
@@ -306,3 +313,38 @@ class TestPinOmoPlugin:
         original = {"plugin": ["other-plugin"]}
 
         assert pin_omo_plugin(original, "v4.19.0") == original
+
+
+class TestMainDelegationTools:
+    def run_config(self, home: str, **overrides: str) -> dict:
+        env = {
+            "PATH": os.environ["PATH"],
+            "HOME": home,
+            "ANTHROPIC_API_KEY": "test-key",
+            **overrides,
+        }
+        subprocess.run(
+            [sys.executable, str(CONFIG_SCRIPT)],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        omo_file = Path(home) / ".config" / "opencode" / "oh-my-openagent.json"
+        return json.loads(omo_file.read_text())
+
+    def test_review_mode_keeps_delegation_tools_enabled(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            generated = self.run_config(tmpdir, MODE="review")
+
+        assert "disabled_tools" not in generated
+
+    def test_review_mode_preserves_user_disabled_tools(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            generated = self.run_config(
+                tmpdir,
+                MODE="review",
+                OMO_CONFIG_JSON='{"disabled_tools": ["look_at"]}',
+            )
+
+        assert generated["disabled_tools"] == ["look_at"]

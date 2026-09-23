@@ -72,6 +72,12 @@ class TestFindPromptFile:
 
 
 class TestGitHubActionPromptGuidance:
+    @staticmethod
+    def required_first_steps(review_prompt: str) -> str:
+        return review_prompt.split("## Required First Steps", 1)[1].split(
+            "## Getting Started", 1
+        )[0]
+
     def test_github_env_warns_about_one_shot_background_tasks(self):
         github_env = (
             Path(__file__).parent.parent / "prompts" / "base" / "github_env.md"
@@ -82,10 +88,8 @@ class TestGitHubActionPromptGuidance:
             "NEVER end a response while background tasks are still pending"
             in github_env
         )
-        assert (
-            "Only launch background tasks if you can collect their results"
-            in github_env
-        )
+        assert "background_output(task_id=..., block=true)" in github_env
+        assert "run_in_background=false" in github_env
 
     def test_agent_prompt_mentions_github_actions_exception(self):
         agent_prompt = (
@@ -94,3 +98,58 @@ class TestGitHubActionPromptGuidance:
 
         assert "Exception: in GitHub Actions one-shot runs" in agent_prompt
         assert "do not finish with pending background tasks" in agent_prompt
+
+    def test_review_permits_background_with_in_turn_collection(self):
+        review_prompt = (
+            Path(__file__).parent.parent / "prompts" / "review.md"
+        ).read_text()
+
+        assert "background_output(task_id=..., block=true)" in review_prompt
+        assert "run_in_background=false" in review_prompt
+
+    def test_prompts_require_terminal_state_for_background_tasks(self):
+        prompts_dir = Path(__file__).parent.parent / "prompts"
+        github_env = (prompts_dir / "base" / "github_env.md").read_text()
+        review_prompt = (prompts_dir / "review.md").read_text()
+
+        for text in (github_env, review_prompt):
+            assert "background_cancel" in text
+
+        # The action cannot know the caller's job timeout, so it must not
+        # recommend a fixed ceiling.
+        assert "600000" not in github_env
+
+    def test_github_env_override_is_not_scoped_to_one_tool(self):
+        github_env = (
+            Path(__file__).parent.parent / "prompts" / "base" / "github_env.md"
+        ).read_text()
+
+        assert "any tool, agent, or skill" in github_env
+
+    def test_review_required_steps_include_pr_diff(self):
+        review_prompt = (
+            Path(__file__).parent.parent / "prompts" / "review.md"
+        ).read_text()
+        required_steps = self.required_first_steps(review_prompt)
+
+        assert "gh pr diff {{ pr_number }}" in required_steps
+
+    def test_review_required_steps_forbid_file_changes(self):
+        review_prompt = (
+            Path(__file__).parent.parent / "prompts" / "review.md"
+        ).read_text()
+        required_steps = self.required_first_steps(review_prompt)
+
+        assert "Review only. Do not edit files, commit, or push." in required_steps
+
+    def test_review_output_is_deterministic(self):
+        review_prompt = (
+            Path(__file__).parent.parent / "prompts" / "review.md"
+        ).read_text()
+        output = review_prompt.split("## Output\n", 1)[1]
+
+        assert "--request-changes" in output
+        assert "--approve" in output
+        assert "--comment" in output
+        assert "exactly one" in output
+        assert "No blocking issues found." in review_prompt

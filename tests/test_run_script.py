@@ -223,3 +223,115 @@ class TestRunScript:
                 state["error_summary"] == "LLM provider quota or credit check failed."
             )
             assert state["failed"] is True
+
+    def test_prompt_append_carries_background_collection_override(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+
+            fake_opencode = fake_bin / "opencode"
+            fake_opencode.write_text(
+                "#!/bin/bash\nprintf 'fake opencode %s\\n' \"$*\"\n"
+            )
+            fake_opencode.chmod(0o755)
+
+            home = tmppath / "home"
+            omo_dir = home / ".config" / "opencode"
+            omo_dir.mkdir(parents=True)
+            omo_file = omo_dir / "oh-my-openagent.json"
+            omo_file.write_text("{}")
+
+            subprocess.run(
+                ["bash", str(RUN_SCRIPT)],
+                check=True,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_PATH),
+                    "HOME": str(home),
+                    "PROMPT": "Reply with the single word OK.",
+                    "PROMPT_VARS": "{}",
+                    "FORMAT_OUTPUT": "false",
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                },
+            )
+
+            append = json.loads(omo_file.read_text())["agents"]["sisyphus"][
+                "prompt_append"
+            ]
+
+        assert "background_output(task_id=..., block=true)" in append
+        assert "background_cancel" in append
+        assert "any tool, agent, or skill" in append
+
+    def test_preset_background_subagents_flag_is_preserved(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+
+            fake_opencode = fake_bin / "opencode"
+            fake_opencode.write_text(
+                "#!/bin/bash\n"
+                "printf 'fake opencode %s\\n' \"$*\"\n"
+                "printf 'BG_SUBAGENTS=%s\\n' \"${OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS:-unset}\"\n"
+            )
+            fake_opencode.chmod(0o755)
+
+            result = subprocess.run(
+                ["bash", str(RUN_SCRIPT)],
+                check=True,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_PATH),
+                    "PROMPT": "Reply with the single word OK.",
+                    "PROMPT_VARS": "{}",
+                    "FORMAT_OUTPUT": "false",
+                    "MODE": "review",
+                    "REVIEW_KEYWORDS": "",
+                    "OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS": "true",
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                },
+            )
+
+            assert "BG_SUBAGENTS=true" in result.stdout
+
+    def test_review_mode_leaves_background_subagents_unset(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+
+            fake_opencode = fake_bin / "opencode"
+            fake_opencode.write_text(
+                "#!/bin/bash\n"
+                "printf 'fake opencode %s\\n' \"$*\"\n"
+                "printf 'BG_SUBAGENTS=%s\\n' \"${OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS:-unset}\"\n"
+            )
+            fake_opencode.chmod(0o755)
+
+            env = {
+                **os.environ,
+                "ACTION_PATH": str(ACTION_PATH),
+                "PROMPT": "Reply with the single word OK.",
+                "PROMPT_VARS": "{}",
+                "FORMAT_OUTPUT": "false",
+                "MODE": "review",
+                "REVIEW_KEYWORDS": "",
+                "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            }
+            env.pop("OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS", None)
+
+            result = subprocess.run(
+                ["bash", str(RUN_SCRIPT)],
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+
+            assert "BG_SUBAGENTS=unset" in result.stdout
