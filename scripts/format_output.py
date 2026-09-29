@@ -142,9 +142,9 @@ def format_tool_output(tool_name: str, tool_input: dict, tool_output: str) -> st
 
 
 def handle_tool_use(part: dict, output: TextIO = sys.stdout) -> None:
-    tool_name = part.get("tool", part.get("name", "unknown"))
+    tool_name = part.get("tool", "unknown")
     state = part.get("state", {})
-    tool_input = state.get("input", part.get("input", {}))
+    tool_input = state.get("input", {})
     tool_output = state.get("output", "")
 
     icon = get_tool_icon(tool_name)
@@ -161,16 +161,12 @@ def handle_tool_use(part: dict, output: TextIO = sys.stdout) -> None:
     formatted_output = format_tool_output(tool_name, tool_input, tool_output)
     if formatted_output:
         print(formatted_output, file=output, flush=True)
-
-    print_group_end(output)
-
-
-def handle_tool_result(part: dict, output: TextIO = sys.stdout) -> None:
-    content = part.get("content", "")
-
-    if content:
-        print("---", file=output, flush=True)
-        print(truncate_content(content), file=output, flush=True)
+    if state.get("status") == "error":
+        print(
+            f"Error: {truncate_content(state.get('error', ''))}",
+            file=output,
+            flush=True,
+        )
 
     print_group_end(output)
 
@@ -214,8 +210,6 @@ def process_event(event: dict, output: TextIO = sys.stdout) -> None:
         return
     elif event_type == "tool_use":
         handle_tool_use(part, output)
-    elif event_type == "tool_result":
-        handle_tool_result(part, output)
     elif event_type == "text":
         handle_text(part, output)
     elif event_type == "step_finish":
