@@ -351,11 +351,36 @@ class TestProcessEvent:
         process_event(event, output)
         assert output.getvalue() == ""
 
-    def test_step_finish_skipped(self):
+    def test_step_finish_summary(self):
         output = io.StringIO()
-        event = {"type": "step_finish", "part": {"id": "123"}}
+        event = {
+            "type": "step_finish",
+            "timestamp": 1790000000000,
+            "sessionID": "ses_1",
+            "part": {
+                "reason": "length",
+                "cost": 0.5,
+                "tokens": {
+                    "input": 10,
+                    "output": 20,
+                    "reasoning": 30,
+                    "cache": {"read": 40, "write": 50},
+                },
+            },
+        }
+        process_event(event, output)
+        assert output.getvalue() == (
+            "Step finished: reason=length session=ses_1 "
+            "time=2026-09-21T14:13:20Z input=10 output=20 reasoning=30 "
+            "cache_read=40 cache_write=50 cost=0.5\n"
+        )
+
+    def test_error_event_goes_to_stderr(self, capsys):
+        output = io.StringIO()
+        event = {"type": "error", "error": {"name": "APIError"}}
         process_event(event, output)
         assert output.getvalue() == ""
+        assert "APIError" in capsys.readouterr().err
 
 
 class TestProcessStream:
