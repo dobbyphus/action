@@ -246,6 +246,7 @@ class TestHandleToolUse:
         result = output.getvalue()
         assert "::group::📄 Read: /test/file.py" in result
         assert "file contents here" not in result
+        assert "Error:" not in result
         assert "::endgroup::" in result
 
     def test_tool_without_output(self):
