@@ -6,6 +6,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+
 CONFIG_SCRIPT = Path(__file__).parent.parent / "scripts" / "config.py"
 
 
@@ -348,3 +350,69 @@ class TestMainDelegationTools:
             )
 
         assert generated["disabled_tools"] == ["look_at"]
+
+
+OMO5_INSTALLER_CONFIG = """// OMO configuration
+{
+  "$schema": "https://example.com/omo.schema.json",
+  "[opencode]": {  // written by the installer
+    "agents": {"sisyphus": {"model": "anthropic/claude-opus-4-7", "variant": "max"},},
+  },
+}
+"""
+
+
+class TestMainOmo5Config:
+    def run_config(self, home: Path, **overrides: str):
+        env = {
+            "PATH": os.environ["PATH"],
+            "HOME": str(home),
+            "ANTHROPIC_API_KEY": "test-key",
+            "OH_MY_OPENCODE_VERSION": "v5.1.2",
+            **overrides,
+        }
+        return subprocess.run(
+            [sys.executable, str(CONFIG_SCRIPT)],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+    def test_writes_opencode_block_of_user_config(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            home = Path(tmpdir)
+            omo_file = home / ".omo" / "omo.jsonc"
+            omo_file.parent.mkdir()
+            omo_file.write_text(OMO5_INSTALLER_CONFIG)
+
+            result = self.run_config(
+                home,
+                COMMIT_FOOTER="false",
+                OMO_CONFIG_JSON='{"agents": {"sisyphus": {"variant": "high"}}}',
+            )
+
+            assert result.returncode == 0, result.stderr
+            document = json.loads(omo_file.read_text())
+            legacy_file = home / ".config" / "opencode" / "oh-my-openagent.json"
+            assert not legacy_file.exists()
+
+        assert document["$schema"] == "https://example.com/omo.schema.json"
+        block = document["[opencode]"]
+        assert block["agents"]["sisyphus"] == {
+            "model": "anthropic/claude-opus-4-7",
+            "variant": "high",
+        }
+        assert block["disabled_skills"] == [
+            "git-master",
+            "playwright",
+            "frontend-ui-ux",
+        ]
+        assert block["git_master"] == {"commit_footer": False}
+
+    def test_missing_user_config_fails(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.run_config(Path(tmpdir))
+
+        assert result.returncode == 1
+        assert "omo.jsonc" in result.stderr

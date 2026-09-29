@@ -623,6 +623,7 @@ runs:
       env:
         ACTION_PATH: ${{ github.action_path }}
         MODE: ${{ steps.mode.outputs.value }}
+        OH_MY_OPENCODE_VERSION: ${{ steps.version.outputs.oh_my_opencode }}
         PROMPT_PATH: ${{ inputs.prompt_path }}
         PROMPT_VARS: ${{ steps.vars.outputs.json }}
         PROMPT: ${{ inputs.prompt }}
