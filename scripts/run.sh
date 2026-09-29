@@ -50,7 +50,7 @@ for base in github_env comment_formatting file_changes; do
   fi
 done
 
-if [[ "${OH_MY_OPENCODE_VERSION:-}" =~ ^v?([0-9]+)\. ]] && (( BASH_REMATCH[1] >= 5 )); then
+if [[ "${OH_MY_OPENCODE_VERSION:-}" =~ ^v?([0-9]+)(\.|$) ]] && (( BASH_REMATCH[1] >= 5 )); then
   python3 "$ACTION_PATH/scripts/omo_config.py" "$PROMPT_APPEND" || exit 1
   OMO_FILE=""
 fi

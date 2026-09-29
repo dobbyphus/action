@@ -12,7 +12,7 @@ JSONC_TRAILING_COMMA = re.compile(r'("(?:\\.|[^"\\])*")|,(?=\s*[}\]])')
 
 
 def omo_major_version(version: str | None) -> int | None:
-    match = re.match(r"v?(\d+)\.", version or "")
+    match = re.match(r"v?(\d+)(?:\.|$)", version or "")
     return int(match.group(1)) if match else None
 
 
@@ -24,7 +24,10 @@ def read_jsonc(path: Path) -> dict:
     text = path.read_text()
     for pattern in (JSONC_COMMENT, JSONC_TRAILING_COMMA):
         text = pattern.sub(lambda match: match.group(1) or "", text)
-    value = json.loads(text)
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{path} contains invalid JSONC: {exc}") from exc
     if not isinstance(value, dict) or not isinstance(
         value.get(OPENCODE_BLOCK, {}), dict
     ):

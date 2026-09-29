@@ -22,6 +22,7 @@ def load_config_module():
 
 
 config = load_config_module()
+omo_config = sys.modules["omo_config"]
 build_auth = config.build_auth
 generate_auth = config.generate_auth
 generate_omo_config = config.generate_omo_config
@@ -360,6 +361,14 @@ OMO5_INSTALLER_CONFIG = """// OMO configuration
   },
 }
 """
+
+
+class TestOmoMajorVersion:
+    def test_parses_resolved_and_bare_versions(self):
+        assert [
+            omo_config.omo_major_version(v) for v in ("v5.1.2", "5", "v4.19.0")
+        ] == [5, 5, 4]
+        assert omo_config.omo_major_version("latest") is None
 
 
 class TestMainOmo5Config:

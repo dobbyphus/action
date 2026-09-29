@@ -295,7 +295,7 @@ def main():
         else:
             omo_base = read_json_object(omo_file) if omo_file.exists() else {}
     except (OSError, TypeError, ValueError) as exc:
-        print(f"Error: cannot read {omo_file}: {exc}", file=sys.stderr)
+        print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
     merged_omo = merge_configs(omo_base, omo_defaults)
