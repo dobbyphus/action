@@ -88,7 +88,6 @@ fi
 
 FINAL=$("$SUBSTITUTE_SCRIPT" "$VARS" <<< "$TEMPLATE")
 FORMAT_SCRIPT="$ACTION_PATH/scripts/format_output.py"
-PRINT_LOG_ARGS=()
 PRINT_LOGS=false
 RUN_LOG="$(mktemp -t dobbyphus-run.XXXXXX)"
 
@@ -111,21 +110,23 @@ provider_error_summary() {
 if should_print_logs; then
   export OPENCODE_PRINT_LOGS=true
   PRINT_LOGS=true
-  PRINT_LOG_ARGS+=(--print-logs)
 fi
 
-set +e
 if [[ "${FORMAT_OUTPUT:-true}" == "true" ]] && [[ "${GITHUB_ACTIONS:-}" == "true" ]] && [[ -f "$FORMAT_SCRIPT" ]]; then
-  python3 "$FORMAT_SCRIPT" "$FINAL" 2> >(tee "$RUN_LOG" >&2)
-  EXIT_CODE=$?
+  RUN_CMD=(python3 "$FORMAT_SCRIPT" "$FINAL")
+elif [[ "$PRINT_LOGS" == "true" ]]; then
+  RUN_CMD=(opencode run --print-logs "$FINAL")
 else
-  if [[ "$PRINT_LOGS" == "true" ]]; then
-    opencode run --print-logs "$FINAL" 2> >(tee "$RUN_LOG" >&2)
-  else
-    opencode run "$FINAL" 2> >(tee "$RUN_LOG" >&2)
-  fi
-  EXIT_CODE=$?
+  RUN_CMD=(opencode run "$FINAL")
 fi
+
+# A pipeline, unlike a process substitution, waits for tee to finish
+# writing RUN_LOG before provider_error_summary reads it.
+set +e
+exec 3>&1
+"${RUN_CMD[@]}" 2>&1 >&3 3>&- | tee "$RUN_LOG" >&2 3>&-
+EXIT_CODE=${PIPESTATUS[0]}
+exec 3>&-
 set -e
 
 ERROR_SUMMARY=""
