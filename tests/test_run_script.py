@@ -1,5 +1,6 @@
 import json
 import os
+import shlex
 import subprocess
 import tempfile
 from pathlib import Path
@@ -223,6 +224,59 @@ class TestRunScript:
                 state["error_summary"] == "LLM provider quota or credit check failed."
             )
             assert state["failed"] is True
+
+    @pytest.mark.parametrize(
+        "script",
+        [
+            "printf 'APIError: Your credit balance is too low.\\n' >&2\n",
+            "echo "
+            + shlex.quote(
+                json.dumps(
+                    {
+                        "type": "error",
+                        "error": {
+                            "name": "APIError",
+                            "data": {"message": "Your credit balance is too low."},
+                        },
+                    }
+                )
+            )
+            + "\n",
+        ],
+        ids=["stderr", "json_event"],
+    )
+    def test_formatted_provider_error_fails_run(self, script):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+
+            fake_opencode = fake_bin / "opencode"
+            fake_opencode.write_text("#!/bin/bash\n" + script)
+            fake_opencode.chmod(0o755)
+
+            result = subprocess.run(
+                ["bash", str(RUN_SCRIPT)],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=tmppath,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_PATH),
+                    "PROMPT": "Reply with the single word OK.",
+                    "PROMPT_VARS": "{}",
+                    "FORMAT_OUTPUT": "true",
+                    "GITHUB_ACTIONS": "true",
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                },
+            )
+
+            assert result.returncode == 1
+            state = json.loads((tmppath / ".dobbyphus-state.json").read_text())
+            assert (
+                state["error_summary"] == "LLM provider quota or credit check failed."
+            )
 
     def test_prompt_append_carries_background_collection_override(self):
         with tempfile.TemporaryDirectory() as tmpdir:
