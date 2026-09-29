@@ -256,6 +256,22 @@ class TestHandleToolUse:
         assert "::group::📋 Todoread" in result
         assert "::endgroup::" in result
 
+    def test_tool_error_shown(self):
+        output = io.StringIO()
+        part = {
+            "tool": "read",
+            "state": {
+                "status": "error",
+                "input": {"filePath": "/missing.py"},
+                "error": "File not found: /missing.py",
+            },
+        }
+        handle_tool_use(part, output)
+        result = output.getvalue()
+        assert "::group::📄 Read: /missing.py" in result
+        assert "Error: File not found: /missing.py" in result
+        assert "::endgroup::" in result
+
     def test_unknown_tool(self):
         output = io.StringIO()
         part = {

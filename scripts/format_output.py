@@ -161,6 +161,12 @@ def handle_tool_use(part: dict, output: TextIO = sys.stdout) -> None:
     formatted_output = format_tool_output(tool_name, tool_input, tool_output)
     if formatted_output:
         print(formatted_output, file=output, flush=True)
+    if state.get("status") == "error":
+        print(
+            f"Error: {truncate_content(state.get('error', ''))}",
+            file=output,
+            flush=True,
+        )
 
     print_group_end(output)
 
