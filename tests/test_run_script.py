@@ -264,6 +264,8 @@ class TestRunScript:
                 env={
                     **os.environ,
                     "ACTION_PATH": str(ACTION_PATH),
+                    "HOME": str(tmppath / "home"),
+                    "TMPDIR": str(tmppath),
                     "PROMPT": "Reply with the single word OK.",
                     "PROMPT_VARS": "{}",
                     "FORMAT_OUTPUT": "true",
