@@ -39,6 +39,7 @@ class TestRunScript:
                     env={
                         **os.environ,
                         "ACTION_PATH": str(ACTION_PATH),
+                        "HOME": str(tmppath / "home"),
                         "PROMPT": "Reply with the single word OK.",
                         "PROMPT_VARS": "{}",
                         "FORMAT_OUTPUT": "false",
@@ -84,6 +85,7 @@ class TestRunScript:
                     env={
                         **os.environ,
                         "ACTION_PATH": str(ACTION_PATH),
+                        "HOME": str(tmppath / "home"),
                         "PROMPT": "Reply with the single word OK.",
                         "PROMPT_VARS": "{}",
                         "FORMAT_OUTPUT": "false",
@@ -212,6 +214,7 @@ class TestRunScript:
                 env={
                     **os.environ,
                     "ACTION_PATH": str(ACTION_PATH),
+                    "HOME": str(tmppath / "home"),
                     "PROMPT": "Reply with the single word OK.",
                     "PROMPT_VARS": "{}",
                     "FORMAT_OUTPUT": "false",
@@ -428,6 +431,7 @@ class TestRunScript:
                 env={
                     **os.environ,
                     "ACTION_PATH": str(ACTION_PATH),
+                    "HOME": str(tmppath / "home"),
                     "PROMPT": "Reply with the single word OK.",
                     "PROMPT_VARS": "{}",
                     "FORMAT_OUTPUT": "false",
@@ -457,6 +461,7 @@ class TestRunScript:
             env = {
                 **os.environ,
                 "ACTION_PATH": str(ACTION_PATH),
+                "HOME": str(tmppath / "home"),
                 "PROMPT": "Reply with the single word OK.",
                 "PROMPT_VARS": "{}",
                 "FORMAT_OUTPUT": "false",
