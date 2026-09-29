@@ -238,6 +238,7 @@ class TestHandleToolUse:
         part = {
             "tool": "read",
             "state": {
+                "status": "completed",
                 "input": {"filePath": "/test/file.py"},
                 "output": "file contents here",
             },
@@ -310,7 +311,10 @@ class TestProcessEvent:
         output = io.StringIO()
         event = {
             "type": "tool_use",
-            "part": {"tool": "bash", "state": {"input": {"command": "echo hello"}}},
+            "part": {
+                "tool": "bash",
+                "state": {"status": "completed", "input": {"command": "echo hello"}},
+            },
         }
         process_event(event, output)
         assert "::group::" in output.getvalue()
@@ -371,7 +375,7 @@ class TestProcessStream:
     def test_multiple_events(self):
         stream = io.StringIO(
             '{"type":"tool_use","part":{"tool":"read",'
-            '"state":{"input":{"filePath":"test.py"}}}}\n'
+            '"state":{"status":"completed","input":{"filePath":"test.py"}}}}\n'
             '{"type":"text","part":{"text":"Done"}}\n'
         )
         output = io.StringIO()
