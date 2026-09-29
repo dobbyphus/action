@@ -20,7 +20,6 @@ format_tool_output = format_output.format_tool_output
 format_todos = format_output.format_todos
 get_tool_icon = format_output.get_tool_icon
 handle_text = format_output.handle_text
-handle_tool_result = format_output.handle_tool_result
 handle_tool_use = format_output.handle_tool_use
 print_group_end = format_output.print_group_end
 print_group_start = format_output.print_group_start
@@ -268,32 +267,6 @@ class TestHandleToolUse:
         assert "🔧" in result
         assert "Custom Tool" in result
 
-    def test_legacy_format_fallback(self):
-        output = io.StringIO()
-        part = {"name": "read", "input": {"filePath": "/test/file.py"}}
-        handle_tool_use(part, output)
-        result = output.getvalue()
-        assert "::group::📄 Read: /test/file.py" in result
-
-
-class TestHandleToolResult:
-    def test_result_with_content(self):
-        output = io.StringIO()
-        part = {"content": "File contents here"}
-        handle_tool_result(part, output)
-        result = output.getvalue()
-        assert "---" in result
-        assert "File contents here" in result
-        assert "::endgroup::" in result
-
-    def test_result_empty_content(self):
-        output = io.StringIO()
-        part = {"content": ""}
-        handle_tool_result(part, output)
-        result = output.getvalue()
-        assert "---" not in result
-        assert "::endgroup::" in result
-
 
 class TestHandleText:
     def test_text_with_content(self):
@@ -320,16 +293,10 @@ class TestProcessEvent:
         output = io.StringIO()
         event = {
             "type": "tool_use",
-            "part": {"name": "bash", "input": {"command": "echo hello"}},
+            "part": {"tool": "bash", "state": {"input": {"command": "echo hello"}}},
         }
         process_event(event, output)
         assert "::group::" in output.getvalue()
-
-    def test_tool_result_event(self):
-        output = io.StringIO()
-        event = {"type": "tool_result", "part": {"content": "hello"}}
-        process_event(event, output)
-        assert "::endgroup::" in output.getvalue()
 
     def test_text_event(self):
         output = io.StringIO()
@@ -386,8 +353,8 @@ class TestProcessEvent:
 class TestProcessStream:
     def test_multiple_events(self):
         stream = io.StringIO(
-            '{"type":"tool_use","part":{"name":"read","input":{"filePath":"test.py"}}}\n'
-            '{"type":"tool_result","part":{"content":"file content"}}\n'
+            '{"type":"tool_use","part":{"tool":"read",'
+            '"state":{"input":{"filePath":"test.py"}}}}\n'
             '{"type":"text","part":{"text":"Done"}}\n'
         )
         output = io.StringIO()
