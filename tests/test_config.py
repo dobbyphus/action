@@ -322,6 +322,7 @@ class TestMainDelegationTools:
     def run_config(self, home: str, **overrides: str) -> dict:
         env = {
             "PATH": os.environ["PATH"],
+            "PYTHONDONTWRITEBYTECODE": "1",
             "HOME": home,
             "ANTHROPIC_API_KEY": "test-key",
             **overrides,
@@ -375,6 +376,7 @@ class TestMainOmo5Config:
     def run_config(self, home: Path, **overrides: str):
         env = {
             "PATH": os.environ["PATH"],
+            "PYTHONDONTWRITEBYTECODE": "1",
             "HOME": str(home),
             "ANTHROPIC_API_KEY": "test-key",
             "OH_MY_OPENCODE_VERSION": "v5.1.2",
