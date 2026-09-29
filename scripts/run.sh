@@ -121,7 +121,8 @@ else
 fi
 
 # A pipeline, unlike a process substitution, waits for tee to finish
-# writing RUN_LOG before provider_error_summary reads it.
+# writing RUN_LOG before provider_error_summary reads it. It also waits
+# for any descendant still holding the agent's stderr.
 set +e
 exec 3>&1
 "${RUN_CMD[@]}" 2>&1 >&3 3>&- | tee "$RUN_LOG" >&2 3>&-
