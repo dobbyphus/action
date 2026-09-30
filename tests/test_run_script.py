@@ -367,6 +367,66 @@ class TestRunScript:
             assert "run-stderr" in result.stderr
             assert "run-stderr" not in result.stdout
 
+    @pytest.mark.parametrize(
+        "sisyphus",
+        [
+            {"model": "anthropic/claude-opus-4-7", "reasoning": "max"},
+            {
+                "models": [
+                    {"model": "anthropic/claude-opus-4-7", "reasoning": "max"},
+                    "openai/gpt-5.5",
+                ]
+            },
+        ],
+        ids=["model", "models"],
+    )
+    def test_omo5_prompt_append_updates_user_config(self, sisyphus):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+
+            fake_opencode = fake_bin / "opencode"
+            fake_opencode.write_text("#!/bin/bash\necho fake opencode\n")
+            fake_opencode.chmod(0o755)
+
+            home = tmppath / "home"
+            omo_file = home / ".omo" / "omo.jsonc"
+            omo_file.parent.mkdir(parents=True)
+            omo_file.write_text(
+                "// OMO configuration\n"
+                + json.dumps({"[opencode]": {"agents": {"sisyphus": sisyphus}}})
+            )
+
+            result = subprocess.run(
+                ["bash", str(RUN_SCRIPT)],
+                check=False,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_PATH),
+                    "HOME": str(home),
+                    "OH_MY_OPENCODE_VERSION": "v5.1.2",
+                    "PROMPT": "Reply with the single word OK.",
+                    "PROMPT_VARS": "{}",
+                    "FORMAT_OUTPUT": "false",
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                },
+            )
+
+            assert result.returncode == 0, result.stderr
+            written = json.loads(omo_file.read_text())["[opencode]"]["agents"][
+                "sisyphus"
+            ]
+
+        assert "## GitHub Actions Environment" in written.pop("prompt_append")
+        assert written == sisyphus
+        assert (
+            "Runtime config: agent=sisyphus provider=anthropic "
+            "model=claude-opus-4-7 variant=max"
+        ) in result.stdout
+
     def test_prompt_append_carries_background_collection_override(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)

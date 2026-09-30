@@ -3,6 +3,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import pytest
+
 ACTION_YAML = Path(__file__).parent.parent / "action.yaml"
 INSTALL_SCRIPT = Path(__file__).parent.parent / "scripts" / "install.sh"
 CONFIGURE_SCRIPT = Path(__file__).parent.parent / "scripts" / "configure.sh"
@@ -142,6 +144,38 @@ class TestProviderInstallInputs:
                 "oh_my_opencode=v4.19.1",
             ]
 
+    @pytest.mark.parametrize(
+        ("requested", "expected"),
+        [("beta", "v5.1.0"), ("^5.1", "^5.1"), ("v5.1.2", "v5.1.2")],
+    )
+    def test_omo_dist_tags_resolve_and_ranges_pass_through(self, requested, expected):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+            output = tmppath / "output"
+
+            (fake_bin / "curl").write_text(
+                "#!/bin/bash\n"
+                '[[ "$*" == *registry.npmjs.org/oh-my-opencode/beta* ]] || exit 2\n'
+                "printf '%s\\n' '{\"version\":\"5.1.0\"}'\n"
+            )
+            (fake_bin / "curl").chmod(0o755)
+
+            subprocess.run(
+                ["bash", str(VERSION_SCRIPT)],
+                check=True,
+                env={
+                    **os.environ,
+                    "GITHUB_OUTPUT": str(output),
+                    "OPENCODE_VERSION": "v1.18.33",
+                    "OH_MY_OPENCODE_VERSION": requested,
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                },
+            )
+
+            assert output.read_text().splitlines()[1] == f"oh_my_opencode={expected}"
+
     def test_review_output_verification_is_folded_into_final_status(self):
         action_text = ACTION_YAML.read_text()
 
@@ -230,6 +264,30 @@ class TestProviderInstallInputs:
             assert "oh-my-openagent.json" in result.stdout
             assert "ignored.json" not in result.stdout
             assert '{"nested": true}' not in result.stdout
+
+    def test_configure_dumps_omo5_user_config(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            home = Path(tmpdir) / "home"
+            omo_file = home / ".omo" / "omo.jsonc"
+            omo_file.parent.mkdir(parents=True)
+            omo_file.write_text('{"[opencode]": {}}')
+
+            result = subprocess.run(
+                ["bash", str(CONFIGURE_SCRIPT)],
+                check=True,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_YAML.parent),
+                    "HOME": str(home),
+                    "AUTH_JSON": "{}",
+                    "OH_MY_OPENCODE_VERSION": "v5.1.2",
+                },
+            )
+
+            assert f"==> {omo_file}" in result.stdout
+            assert "disabled_skills" in result.stdout
 
     def test_configure_selects_legacy_omo_config_for_legacy_plugin(self):
         with tempfile.TemporaryDirectory() as tmpdir:
