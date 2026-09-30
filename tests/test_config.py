@@ -8,6 +8,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
+import omo_config
+
 CONFIG_SCRIPT = Path(__file__).parent.parent / "scripts" / "config.py"
 
 
@@ -22,7 +24,6 @@ def load_config_module():
 
 
 config = load_config_module()
-omo_config = sys.modules["omo_config"]
 build_auth = config.build_auth
 generate_auth = config.generate_auth
 generate_omo_config = config.generate_omo_config
@@ -418,8 +419,42 @@ class TestMainOmo5Config:
             "git-master",
             "playwright",
             "frontend-ui-ux",
+            "frontend",
         ]
         assert block["git_master"] == {"commit_footer": False}
+
+    def test_models_override_replaces_installer_model(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            home = Path(tmpdir)
+            omo_file = home / ".omo" / "omo.jsonc"
+            omo_file.parent.mkdir()
+            omo_file.write_text(OMO5_INSTALLER_CONFIG)
+
+            result = self.run_config(
+                home,
+                OMO_CONFIG_JSON='{"agents": {"sisyphus": {"models": ["a/b"]}}}',
+            )
+
+            assert result.returncode == 0, result.stderr
+            document = json.loads(omo_file.read_text())
+
+        assert document["[opencode]"]["agents"]["sisyphus"] == {"models": ["a/b"]}
+
+    def test_writes_existing_omo_json(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            home = Path(tmpdir)
+            omo_file = home / ".omo" / "omo.json"
+            omo_file.parent.mkdir()
+            omo_file.write_text('{"[opencode]": {}}')
+
+            result = self.run_config(home)
+
+            assert result.returncode == 0, result.stderr
+            assert (
+                "git-master"
+                in json.loads(omo_file.read_text())["[opencode]"]["disabled_skills"]
+            )
+            assert not (home / ".omo" / "omo.jsonc").exists()
 
     def test_missing_user_config_fails(self):
         with tempfile.TemporaryDirectory() as tmpdir:

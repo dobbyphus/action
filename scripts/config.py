@@ -288,6 +288,9 @@ def main():
         enable_frontend_ui_ux,
     )
 
+    if omo5 and "frontend-ui-ux" in omo_defaults.get("disabled_skills", []):
+        omo_defaults["disabled_skills"].append("frontend")
+
     try:
         if omo5:
             omo_document = omo_config.read_jsonc(omo_file)
@@ -306,6 +309,8 @@ def main():
         except (TypeError, ValueError) as exc:
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
+        if omo5:
+            merged_omo = omo_config.drop_replaced_models(merged_omo, omo_override)
         merged_omo = merge_configs(merged_omo, omo_override)
 
     if omo5:

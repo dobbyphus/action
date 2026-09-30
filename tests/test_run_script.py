@@ -367,7 +367,20 @@ class TestRunScript:
             assert "run-stderr" in result.stderr
             assert "run-stderr" not in result.stdout
 
-    def test_omo5_prompt_append_updates_user_config(self):
+    @pytest.mark.parametrize(
+        "sisyphus",
+        [
+            {"model": "anthropic/claude-opus-4-7", "reasoning": "max"},
+            {
+                "models": [
+                    {"model": "anthropic/claude-opus-4-7", "reasoning": "max"},
+                    "openai/gpt-5.5",
+                ]
+            },
+        ],
+        ids=["model", "models"],
+    )
+    def test_omo5_prompt_append_updates_user_config(self, sisyphus):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmppath = Path(tmpdir)
             fake_bin = tmppath / "bin"
@@ -382,8 +395,7 @@ class TestRunScript:
             omo_file.parent.mkdir(parents=True)
             omo_file.write_text(
                 "// OMO configuration\n"
-                '{"[opencode]": {"agents": {"sisyphus": '
-                '{"model": "anthropic/claude-opus-4-7", "reasoning": "max"}}}}\n'
+                + json.dumps({"[opencode]": {"agents": {"sisyphus": sisyphus}}})
             )
 
             result = subprocess.run(
@@ -404,13 +416,12 @@ class TestRunScript:
             )
 
             assert result.returncode == 0, result.stderr
-            sisyphus = json.loads(omo_file.read_text())["[opencode]"]["agents"][
+            written = json.loads(omo_file.read_text())["[opencode]"]["agents"][
                 "sisyphus"
             ]
 
-        assert sisyphus["model"] == "anthropic/claude-opus-4-7"
-        assert sisyphus["reasoning"] == "max"
-        assert "## GitHub Actions Environment" in sisyphus["prompt_append"]
+        assert "## GitHub Actions Environment" in written.pop("prompt_append")
+        assert written == sisyphus
         assert (
             "Runtime config: agent=sisyphus provider=anthropic "
             "model=claude-opus-4-7 variant=max"

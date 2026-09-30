@@ -118,7 +118,10 @@ inputs:
     description: JSON array of provider IDs to disable
     required: false
   omo_config_json:
-    description: Full oh-my-openagent.json content (advanced, overrides presets)
+    description: >-
+      oh-my-opencode config merged over the presets (advanced); for
+      oh-my-opencode 5 and later it is merged into the [opencode] block
+      of ~/.omo/omo.jsonc
     required: false
   auth_json:
     description: Full auth.json content (advanced, overrides API keys)
