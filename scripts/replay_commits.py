@@ -527,7 +527,14 @@ def main() -> int:
 
     if is_new_branch:
         print(f"\nCreating ref {current_branch} -> {parent_sha[:7]}")
-        create_ref(repo, current_branch, parent_sha)
+        try:
+            create_ref(repo, current_branch, parent_sha)
+        except subprocess.CalledProcessError:
+            print(
+                "Unable to create remote branch; inspect GitHub before retrying.",
+                file=sys.stderr,
+            )
+            return 1
     else:
         print(f"\nUpdating ref {current_branch} -> {parent_sha[:7]}")
         update_ref(repo, current_branch, parent_sha)

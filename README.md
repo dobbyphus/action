@@ -153,6 +153,8 @@ The agent must create a branch for any changes. Direct commits to the default br
 
 All commits are signed and verified by GitHub. The agent commits normally using `git commit`, and the action replays each commit through the GitHub API, which signs them automatically.
 
+With `replay_new_branch_only: true`, signed replay rejects existing destination branches, including PR-comment runs that target the PR branch. Leave the default `false` for those workflows.
+
 ### Workflow by Trigger
 
 | Trigger | Mode | Agent Should | Action Does |

@@ -23,6 +23,7 @@ def replay(monkeypatch):
         "get_default_branch": "main",
         "get_commits": ["local"],
         "get_remote_branch_sha": None,
+        "filter_new_commits": ["local"],
         "branch_exists_on_remote": False,
         "replay_commit": "signed",
         "create_pull_request": "https://github.com/owner/repo/pull/1",
@@ -54,8 +55,7 @@ class TestNewBranchOnly:
     def test_branch_created_during_replay_never_updates_ref(self, replay):
         replay["branch_exists_on_remote"].return_value = True
         replay["gh_api"].side_effect = subprocess.CalledProcessError(1, "gh")
-        with pytest.raises(subprocess.CalledProcessError):
-            replay_commits.main()
+        assert replay_commits.main() == 1
         assert replay["gh_api"].call_args.kwargs["method"] == "POST"
         replay["gh_api"].assert_called_once()
         replay["create_pull_request"].assert_not_called()
@@ -69,8 +69,12 @@ class TestNewBranchOnly:
 
     def test_default_preserves_existing_branch_mode(self, replay, monkeypatch):
         monkeypatch.delenv("REPLAY_NEW_BRANCH_ONLY")
+        replay["get_remote_branch_sha"].return_value = "a" * 40
         replay["branch_exists_on_remote"].return_value = True
         assert replay_commits.main() == 0
+        replay["filter_new_commits"].assert_called_once_with(
+            "owner/repo", ["local"], "origin/feature"
+        )
         assert replay["gh_api"].call_args.kwargs["method"] == "PATCH"
 
 

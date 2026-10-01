@@ -58,6 +58,15 @@ class TestProviderInstallInputs:
         assert "Include raw opencode runtime logs" in action_text
         assert "OPENCODE_PRINT_LOGS: ${{ inputs.opencode_print_logs }}" in action_text
 
+    def test_action_passes_create_only_replay_input(self):
+        action_text = ACTION_YAML.read_text()
+
+        assert "replay_new_branch_only:" in action_text
+        assert (
+            "REPLAY_NEW_BRANCH_ONLY: ${{ inputs.replay_new_branch_only }}"
+            in action_text
+        )
+
     def test_action_exposes_bot_login_input(self):
         action_text = ACTION_YAML.read_text()
 
