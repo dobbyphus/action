@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -79,6 +80,7 @@ class TestNewBranchOnly:
 
 
 class TestReplayFetch:
+    @patch.dict(os.environ, {"GITHUB_SERVER_URL": "https://github.com"})
     @patch("replay_commits.get_commit_subject", return_value="test")
     @patch("replay_commits.get_commit_message", return_value="test")
     @patch("replay_commits.get_changed_files", return_value=["file"])
@@ -115,6 +117,9 @@ class TestReplayTree:
     @pytest.mark.parametrize("link_name", ["link", " link\n\r"])
     def test_uses_index_bytes_and_modes(self, tmp_path, monkeypatch, link_name):
         monkeypatch.chdir(tmp_path)
+        for name in list(os.environ):
+            if name.startswith("GIT_"):
+                monkeypatch.delenv(name)
         monkeypatch.setenv("GIT_CONFIG_GLOBAL", "/dev/null")
         monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
         replay_commits.git("init", "-q")

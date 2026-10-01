@@ -1,6 +1,7 @@
 import os
 import subprocess
 import tempfile
+import textwrap
 from pathlib import Path
 
 ACTION_YAML = Path(__file__).parent.parent / "action.yaml"
@@ -66,6 +67,39 @@ class TestProviderInstallInputs:
             "REPLAY_NEW_BRANCH_ONLY: ${{ inputs.replay_new_branch_only }}"
             in action_text
         )
+
+    def test_replay_outcome_reaches_final_status(self, tmp_path):
+        action = ACTION_YAML.read_text()
+        assert action.index("- name: Replay commits as signed") < action.index(
+            "- name: Determine final exit code"
+        )
+        step = action.split("- name: Determine final exit code", 1)[1]
+        script = textwrap.dedent(
+            step.split("run: |\n", 1)[1].split("\n    - name:", 1)[0]
+        )
+        cases = [
+            ("0", "", "success", "0"),
+            ("0", "", "failure", "1"),
+            ("0", "1", "skipped", "1"),
+            ("0", "0", "skipped", "0"),
+            ("1", "", "skipped", "1"),
+        ]
+        for agent, review, replay, expected in cases:
+            rendered = script
+            for expression, value in [
+                ("steps.agent.outputs.exit_code", agent),
+                ("steps.review_output.outputs.exit_code", review),
+                ("steps.replay.outcome", replay),
+            ]:
+                rendered = rendered.replace("${{ " + expression + " }}", value)
+            output = tmp_path / "output"
+            output.write_text("")
+            subprocess.run(
+                ["bash", "-e", "-c", rendered],
+                env={**os.environ, "GITHUB_OUTPUT": str(output)},
+                check=True,
+            )
+            assert output.read_text().strip() == "exit_code=" + expected
 
     def test_action_exposes_bot_login_input(self):
         action_text = ACTION_YAML.read_text()
