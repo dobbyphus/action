@@ -95,6 +95,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | `prompt_path` | `.github/prompts` | Path to prompts directory |
 | `prompt_vars` | - | JSON object for template substitution |
 | `github_token` | `github.token` | GitHub token for API access |
+| `replay_new_branch_only` | `false` | Signed replay creates a new remote branch only; existing branches and concurrent name collisions fail without updating the ref. Does not restrict the agent's own GitHub commands. |
 | `opencode_version` | `latest` | OpenCode version to install |
 | `oh_my_opencode_version` | `latest` | oh-my-opencode version to install |
 | `config_json` | - | Full opencode.json content (advanced) |
@@ -242,6 +243,8 @@ The agent must create a branch for any changes. Direct commits to the default br
 ### Signed Commits
 
 All commits are signed and verified by GitHub. The agent commits normally using `git commit`, and the action replays each commit through the GitHub API, which signs them automatically.
+
+With `replay_new_branch_only: true`, signed replay rejects existing destination branches, including PR-comment runs that target the PR branch. Leave the default `false` for those workflows.
 
 ### Workflow by Trigger
 
