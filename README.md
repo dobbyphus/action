@@ -314,7 +314,7 @@ For production use. Provides higher API limits, can trigger workflows, and commi
 
 **Setup**: Create a GitHub App with `contents: write`, `issues: write`, `pull-requests: write` permissions. Store the App ID in a variable and the private key as a secret.
 
-The `<bot_name>: working` label is always managed with the job's `GITHUB_TOKEN`, so its label events do not start new workflow runs. Grant the job `issues: write` to keep that label.
+The `<bot_name>: working` label is always managed with the job's `GITHUB_TOKEN`, so its label events do not start new workflow runs. Grant the job `issues: write` and `pull-requests: write` to keep that label on pull requests.
 
 See the commented section in [`examples/agent.yaml`](./examples/agent.yaml) for the complete pattern.
 
