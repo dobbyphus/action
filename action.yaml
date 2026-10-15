@@ -523,7 +523,7 @@ runs:
       if: steps.context.outputs.number != ''
       shell: bash
       env:
-        GH_TOKEN: ${{ inputs.github_token }}
+        GH_TOKEN: ${{ github.token }}
         INPUT_BOT_NAME: ${{ inputs.bot_name }}
       run: |
         LABEL="$INPUT_BOT_NAME: working"
@@ -777,7 +777,7 @@ runs:
       if: always() && steps.context.outputs.number != ''
       shell: bash
       env:
-        GH_TOKEN: ${{ inputs.github_token }}
+        GH_TOKEN: ${{ github.token }}
         INPUT_BOT_NAME: ${{ inputs.bot_name }}
       run: |
         LABEL="$INPUT_BOT_NAME: working"
