@@ -109,6 +109,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | `skill_enable_frontend_ui_ux` | `false` | Enable frontend-ui-ux builtin skill (true/false) |
 | `format_output` | `true` | Format output with collapsible sections for GitHub Actions logs |
 | `opencode_print_logs` | `false` | Include raw opencode runtime logs (`--print-logs`) in agent runs. GitHub debug reruns also enable this automatically. |
+| `force_review` | `false` | Review even when `bot_login` already approved or requested changes on the current PR head |
 
 ## How It Works
 
@@ -132,6 +133,13 @@ The action supports two modes via the `mode` input:
 the `mode` input, even a custom mode such as `triage`. For other events, an
 explicit `@bot review` command takes precedence over `mode`; otherwise the
 action uses the supplied mode, defaulting to `agent`.
+
+Review mode skips a PR head that `bot_login` already approved or requested
+changes on, before installing or running the agent, and sets the
+`review_skipped` output to `true`. Set `force_review: true` to review that
+head again. To keep two triggers from reviewing one head in parallel, put the
+job in a per-PR `concurrency` group without `cancel-in-progress`; the queued
+run then sees the first review and skips.
 
 #### Review runs must finish their own work
 
