@@ -171,6 +171,17 @@ inputs:
       GitHub debug reruns enable this automatically
     required: false
     default: "false"
+  force_review:
+    description: >-
+      Review even when bot_login already approved or requested changes on
+      the current PR head
+    required: false
+    default: "false"
+
+outputs:
+  review_skipped:
+    description: "true when review mode skipped an already reviewed PR head"
+    value: ${{ steps.review_baseline.outputs.skip == 'true' }}
 
 runs:
   using: composite
@@ -513,14 +524,29 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github_token }}
+        BOT_LOGIN: ${{ steps.actor.outputs.login }}
+        INPUT_FORCE_REVIEW: ${{ inputs.force_review }}
+        NUM: ${{ steps.context.outputs.number }}
       run: |
         REVIEWS_BEFORE="$RUNNER_TEMP/reviews-before.json"
         gh api --paginate "repos/${{ github.repository }}/pulls/${{ steps.context.outputs.number }}/reviews" \
           | jq -s 'add' > "$REVIEWS_BEFORE"
         echo "path=$REVIEWS_BEFORE" >> "$GITHUB_OUTPUT"
 
+        SKIP=false
+        if [[ "$INPUT_FORCE_REVIEW" != "true" ]]; then
+          HEAD_SHA=$(gh pr view "$NUM" --repo "${{ github.repository }}" \
+            --json headRefOid --jq .headRefOid)
+          SKIP=$(python3 "${{ github.action_path }}/scripts/review_guard.py" \
+            "$BOT_LOGIN" "$HEAD_SHA" "$REVIEWS_BEFORE")
+        fi
+        if [[ "$SKIP" == "true" ]]; then
+          echo "::notice::$BOT_LOGIN already reviewed $HEAD_SHA; skipping."
+        fi
+        echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
+
     - name: Add working label
-      if: steps.context.outputs.number != ''
+      if: steps.context.outputs.number != '' && steps.review_baseline.outputs.skip != 'true'
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
@@ -536,9 +562,11 @@ runs:
 
     # === INSTALL & CONFIGURE ===
     - name: Setup Bun
+      if: steps.review_baseline.outputs.skip != 'true'
       uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
     - name: Get versions
+      if: steps.review_baseline.outputs.skip != 'true'
       id: version
       shell: bash
       run: ${{ github.action_path }}/scripts/version.sh
@@ -548,6 +576,7 @@ runs:
         GH_TOKEN: ${{ inputs.github_token }}
 
     - name: Cache opencode
+      if: steps.review_baseline.outputs.skip != 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ~/.opencode/bin
@@ -555,6 +584,7 @@ runs:
         key: opencode-${{ runner.os }}-${{ runner.arch }}-${{ steps.version.outputs.opencode }}
 
     - name: Cache bun
+      if: steps.review_baseline.outputs.skip != 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ~/.bun/install/cache
@@ -562,6 +592,7 @@ runs:
         key: bun-${{ runner.os }}-${{ runner.arch }}-${{ steps.version.outputs.oh_my_opencode }}
 
     - name: Install
+      if: steps.review_baseline.outputs.skip != 'true'
       shell: bash
       run: ${{ github.action_path }}/scripts/install.sh
       env:
@@ -578,6 +609,7 @@ runs:
         PROVIDER_OPENCODE_GO: ${{ inputs.provider_opencode_go }}
 
     - name: Configure
+      if: steps.review_baseline.outputs.skip != 'true'
       shell: bash
       run: ${{ github.action_path }}/scripts/configure.sh
       env:
@@ -610,11 +642,13 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github_token }}
 
     - name: Warm provider cache
+      if: steps.review_baseline.outputs.skip != 'true'
       shell: bash
       run: ${{ github.action_path }}/scripts/warmup.sh
 
     # === RUN AGENT ===
     - name: Run agent
+      if: steps.review_baseline.outputs.skip != 'true'
       id: agent
       shell: bash
       run: |
@@ -699,6 +733,10 @@ runs:
       shell: bash
       run: |
         EXIT_CODE="${{ steps.agent.outputs.exit_code }}"
+
+        if [[ "${{ steps.review_baseline.outputs.skip }}" == "true" ]]; then
+          EXIT_CODE=0
+        fi
 
         if [[ "$EXIT_CODE" == "0" && "${{ steps.review_output.outputs.exit_code }}" != "" ]]; then
           EXIT_CODE="${{ steps.review_output.outputs.exit_code }}"
