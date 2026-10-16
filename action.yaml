@@ -99,6 +99,11 @@ inputs:
     required: false
     default: ${{ github.token }}
 
+  replay_new_branch_only:
+    description: Reject existing remote branches during signed commit replay
+    required: false
+    default: "false"
+
   opencode_version:
     description: OpenCode version to install
     required: false
@@ -693,6 +698,20 @@ runs:
 
         echo "exit_code=$VERIFY_EXIT" >> "$GITHUB_OUTPUT"
 
+    # === TEARDOWN (always runs) ===
+    - name: Replay commits as signed
+      id: replay
+      if: always() && steps.agent.outputs.exit_code == '0' && steps.mode.outputs.value != 'review'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+        REPLAY_NEW_BRANCH_ONLY: ${{ inputs.replay_new_branch_only }}
+      run: |
+        python3 "${{ github.action_path }}/scripts/replay_commits.py" \
+          "${{ steps.git.outputs.start_sha }}" \
+          "${{ steps.git.outputs.start_branch }}" \
+          "${{ steps.context.outputs.number }}"
+
     - name: Determine final exit code
       id: final_status
       if: always()
@@ -704,19 +723,11 @@ runs:
           EXIT_CODE="${{ steps.review_output.outputs.exit_code }}"
         fi
 
-        echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+        if [[ "$EXIT_CODE" == "0" && "${{ steps.replay.outcome }}" == "failure" ]]; then
+          EXIT_CODE=1
+        fi
 
-    # === TEARDOWN (always runs) ===
-    - name: Replay commits as signed
-      if: always() && steps.agent.outputs.exit_code == '0' && steps.mode.outputs.value != 'review'
-      shell: bash
-      env:
-        GH_TOKEN: ${{ inputs.github_token }}
-      run: |
-        python3 "${{ github.action_path }}/scripts/replay_commits.py" \
-          "${{ steps.git.outputs.start_sha }}" \
-          "${{ steps.git.outputs.start_branch }}" \
-          "${{ steps.context.outputs.number }}"
+        echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
 
     - name: Post failure comment
       # yamllint disable-line rule:line-length
