@@ -675,6 +675,7 @@ runs:
       continue-on-error: true
       if: >-
         always() &&
+        steps.review_baseline.outputs.skip != 'true' &&
         steps.agent.outputs.exit_code == '0' &&
         steps.mode.outputs.value == 'review' &&
         (steps.context.outputs.context_type == 'pr_comment' ||

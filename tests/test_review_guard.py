@@ -27,3 +27,12 @@ class TestHasFormalReview:
         ]
 
         assert not has_formal_review(reviews, BOT, HEAD)
+
+
+def test_skipped_review_is_not_verified():
+    # A skipped agent step has a null exit_code, which GitHub coerces to
+    # match '0', so the verify step needs its own skip guard.
+    action = (Path(__file__).parent.parent / "action.yaml").read_text()
+    verify = action.split("- name: Verify review output")[1].split("shell:")[0]
+
+    assert "steps.review_baseline.outputs.skip != 'true'" in verify
