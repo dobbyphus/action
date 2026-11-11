@@ -1,5 +1,6 @@
 import importlib.util
 import io
+import json
 from pathlib import Path
 
 
@@ -473,6 +474,50 @@ class TestRunOpencode:
         assert commands == [
             ["opencode", "run", "--print-logs", "--format", "json", "hello"]
         ]
+
+    def test_length_stop_fails_run(self, monkeypatch, tmp_path, capsys):
+        stream = (
+            '{"type":"step_finish","part":{"reason":"tool-calls"}}\n'
+            '{"type":"step_finish","part":{"reason":"length"}}\n'
+        )
+
+        class FakeProcess:
+            def __init__(self, cmd, **kwargs):
+                self.stdout = io.StringIO(stream)
+
+            def wait(self):
+                return 0
+
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("OPENCODE_PRINT_LOGS", raising=False)
+        monkeypatch.setattr(format_output.shutil, "which", lambda _name: None)
+        monkeypatch.setattr(format_output.subprocess, "Popen", FakeProcess)
+
+        assert run_opencode("hello", io.StringIO()) == 1
+        state = json.loads((tmp_path / ".dobbyphus-state.json").read_text())
+        assert state["failed"] is True
+        assert "output token limit" in state["error_summary"]
+        assert "::error::" in capsys.readouterr().err
+
+    def test_length_stop_followed_by_stop_passes(self, monkeypatch, tmp_path):
+        stream = (
+            '{"type":"step_finish","part":{"reason":"length"}}\n'
+            '{"type":"step_finish","part":{"reason":"stop"}}\n'
+        )
+
+        class FakeProcess:
+            def __init__(self, cmd, **kwargs):
+                self.stdout = io.StringIO(stream)
+
+            def wait(self):
+                return 0
+
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(format_output.shutil, "which", lambda _name: None)
+        monkeypatch.setattr(format_output.subprocess, "Popen", FakeProcess)
+
+        assert run_opencode("hello", io.StringIO()) == 0
+        assert not (tmp_path / ".dobbyphus-state.json").exists()
 
 
 class TestShouldPrintLogs:
