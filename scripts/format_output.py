@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import time
+from pathlib import Path
 from typing import IO, TextIO
 
 TOOL_ICONS = {
@@ -220,7 +221,9 @@ def process_event(event: dict, output: TextIO = sys.stdout) -> None:
         print(json.dumps(event), file=output, flush=True)
 
 
-def process_stream(stream: IO[str], output: TextIO = sys.stdout) -> None:
+def process_stream(stream: IO[str], output: TextIO = sys.stdout) -> str | None:
+    """Print the stream and return the finish reason of its last step."""
+    last_reason = None
     for line in stream:
         line = line.strip()
         if not line:
@@ -228,9 +231,14 @@ def process_stream(stream: IO[str], output: TextIO = sys.stdout) -> None:
 
         try:
             event = json.loads(line)
-            process_event(event, output)
         except json.JSONDecodeError:
             print(line, file=output, flush=True)
+            continue
+
+        process_event(event, output)
+        if event.get("type") == "step_finish":
+            last_reason = event.get("part", {}).get("reason")
+    return last_reason
 
 
 def run_opencode(prompt: str, output: TextIO = sys.stdout) -> int:
@@ -253,10 +261,22 @@ def run_opencode(prompt: str, output: TextIO = sys.stdout) -> int:
         bufsize=1,
     )
 
-    if process.stdout:
-        process_stream(process.stdout, output)
+    last_reason = process_stream(process.stdout, output) if process.stdout else None
+    exit_code = process.wait()
 
-    return process.wait()
+    # opencode exits 0 when the model stops at its output token limit, which
+    # would end the run without its reply, review or verdict.
+    if exit_code == 0 and last_reason == "length":
+        summary = (
+            "The model reached its output token limit before it finished, "
+            "so the run ended without a result."
+        )
+        print(f"::error::{summary}", file=sys.stderr, flush=True)
+        Path(".dobbyphus-state.json").write_text(
+            json.dumps({"error_summary": summary, "failed": True})
+        )
+        return 1
+    return exit_code
 
 
 def main() -> None:
