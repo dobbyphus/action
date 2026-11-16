@@ -89,6 +89,7 @@ class TestProviderInstallInputs:
         for agent, review, replay, expected in cases:
             rendered = script
             for expression, value in [
+                ("steps.review_baseline.outputs.skip", "false"),
                 ("steps.agent.outputs.exit_code", agent),
                 ("steps.review_output.outputs.exit_code", review),
                 ("steps.replay.outcome", replay),
