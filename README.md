@@ -74,7 +74,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | Input | Default | Description |
 |-------|---------|-------------|
 | `bot_name` | `ai-agent` | Bot name for labels and mentions |
-| `bot_login` | `""` | Review author login; required for `pull_request` review events when it cannot be inferred |
+| `bot_login` | `""` | Review author login; required for `pull_request` and `pull_request_target` events without a requested reviewer |
 | `mention_users` | `false` | Whether to @mention users in comments (reduces notification noise when false) |
 | `anthropic_api_key` | - | Anthropic API key |
 | `openai_api_key` | - | OpenAI API key |
@@ -101,7 +101,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | `config_json` | - | Full opencode.json content (advanced) |
 | `enabled_providers` | - | JSON array of provider IDs to enable |
 | `disabled_providers` | - | JSON array of provider IDs to disable |
-| `omo_config_json` | - | Full oh-my-openagent.json content (advanced) |
+| `omo_config_json` | - | oh-my-opencode config merged over the presets (advanced); merged into the `[opencode]` block of `~/.omo/omo.jsonc` for oh-my-opencode 5 and later |
 | `auth_json` | - | Full auth.json content (advanced) |
 | `agent_keywords` | `ultrawork` | Keywords to prepend for agent mode (triggers oh-my-opencode modes) |
 | `review_keywords` | `analyze` | Keywords to prepend for review mode (triggers oh-my-opencode modes) |
@@ -110,6 +110,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | `skill_enable_frontend_ui_ux` | `false` | Enable frontend-ui-ux builtin skill (true/false) |
 | `format_output` | `true` | Format output with collapsible sections for GitHub Actions logs |
 | `opencode_print_logs` | `false` | Include raw opencode runtime logs (`--print-logs`) in agent runs. GitHub debug reruns also enable this automatically. |
+| `force_review` | `false` | Review even when `bot_login` already approved or requested changes on the current PR head |
 
 ## How It Works
 
@@ -128,6 +129,44 @@ The action supports two modes via the `mode` input:
 | `agent` | Issue comments, PR comments, workflow dispatch | Work on requests, make changes |
 | `review` | PR review requests and review comments | Review code, provide feedback |
 
+`pull_request` and `pull_request_target` always select `review`, including
+`labeled`, `opened`, and `synchronize` activities. This takes precedence over
+the `mode` input, even a custom mode such as `triage`. For other events, an
+explicit `@bot review` command takes precedence over `mode`; otherwise the
+action uses the supplied mode, defaulting to `agent`.
+
+Review mode skips a PR head that `bot_login` already approved or requested
+changes on, before installing or running the agent, and sets the
+`review_skipped` output to `true`. Set `force_review: true` to review that
+head again. To keep two triggers from reviewing one head in parallel, put the
+job in a per-PR `concurrency` group without `cancel-in-progress`; the queued
+run then sees the first review and skips.
+
+#### Review runs must finish their own work
+
+A run is one-shot. Once the agent's response ends there is no follow-up turn
+and no `<system-reminder>` notification, so anything still pending is simply
+lost. That is how a delegated review analysis could leave the session idle
+with no review posted at all.
+
+No tools are removed and no environment flag is set. Delegation stays fully
+available in every mode, and your own `omo_config_json` `disabled_tools`
+entries pass through untouched. The constraint lives in the prompts instead:
+the agent may spawn background agents and keep working while they run, but it
+must collect every result before finishing, either by delegating synchronously
+with `run_in_background=false` or by collecting in-turn with
+`background_output(task_id=..., block=true)`. The non-obvious part is that the
+prompts have to explicitly override the `background_output` tool's own
+instruction to wait for a `<system-reminder>` before collecting, because in a
+one-shot run that notification never arrives.
+
+Review output is deterministic. A run submits exactly one review: any `BLOCKER`
+finding means `--request-changes`, otherwise `--approve` with the body phrase
+`No blocking issues found.` If GitHub rejects approve or request-changes, for
+example on a PR the bot authored itself, since GitHub forbids self-approval,
+the review prompt directs the agent to resubmit the same body with `--comment`
+so a review is still posted.
+
 ### Trigger Conditions
 
 Use job-level `if` to control when the agent runs. The example covers:
@@ -137,6 +176,66 @@ Use job-level `if` to control when the agent runs. The example covers:
 - `pull_request`: Review requested / reviewer assigned
 - `pull_request_review`: @mention in review body
 - `pull_request_review_comment`: @mention in inline diff comment
+
+### Label reviews with `pull_request_target`
+
+For label-driven reviews using the default-branch workflow, configure both
+`on.pull_request_target` and a matching job condition. This is an optional
+alternative to the quick-start triggers.
+
+`pull_request_target` can access repository secrets and write credentials,
+including for fork PRs. The caller must authorize the request and control
+what the agent reads and executes. Do not check out or execute untrusted PR
+head code in a privileged job. Keep the action, workspace, agent configuration,
+prompt templates, and base snippets on trusted revisions. In particular,
+consumer files under `prompt_path` override bundled prompts and base snippets;
+checking out a trusted copy of the action alone does not protect those inputs.
+Treat PR titles, descriptions, and diffs as untrusted data.
+
+This example accepts `ai-review` labels only on open, same-repository PRs and
+checks out the trusted workflow commit. The same-repository guard excludes
+forks; it does not make unreviewed branch contents trusted. Inspect the PR with
+commands such as `gh pr diff` rather than switching the workspace to its head.
+Replace `REVIEWED_ACTION_SHA` with a reviewed commit supporting this event.
+
+```yaml
+name: Label review
+
+"on":
+  pull_request_target:
+    types: [labeled]
+
+jobs:
+  review:
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'ai-review' &&
+      github.event.pull_request.state == 'open' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: dobbyphus/action@REVIEWED_ACTION_SHA
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          bot_name: ai-agent
+          bot_login: github-actions[bot]
+          prompt_path: ${{ github.workspace }}/.github/prompts
+```
+
+The absolute `prompt_path` points into the trusted checkout. If those files
+are absent, the action falls back to its bundled prompts. Set `bot_login` to
+the account that will actually post the review: `github-actions[bot]` for the
+default token, or your app's login when supplying an app token.
 
 ### Branch & PR Workflow
 
@@ -177,9 +276,12 @@ Set these in Settings → Secrets and variables → Variables:
 | `BOT_NAME` | `ai-agent` | Bot mention trigger and label prefix |
 | `BOT_LOGIN` | `github-actions[bot]` | Bot login to prevent self-triggering |
 
-`pull_request` review events do not identify the review author. Pass
-`bot_login` explicitly so the action can verify that review mode posted a new
-PR review.
+For `pull_request` and `pull_request_target`, the action resolves the review
+author from `bot_login`, falling back to `requested_reviewer.login` when
+present. Label, open, and synchronize events have no requested reviewer, so
+pass `bot_login` explicitly. If neither value is available, context collection
+fails immediately, before running the agent. Review-output verification
+remains mandatory.
 
 ## Authentication
 
@@ -222,6 +324,8 @@ For production use. Provides higher API limits, can trigger workflows, and commi
 ```
 
 **Setup**: Create a GitHub App with `contents: write`, `issues: write`, `pull-requests: write` permissions. Store the App ID in a variable and the private key as a secret.
+
+The `<bot_name>: working` label is always managed with the job's `GITHUB_TOKEN`, so its label events do not start new workflow runs. Grant the job `issues: write` and `pull-requests: write` to keep that label on pull requests.
 
 See the commented section in [`examples/agent.yaml`](./examples/agent.yaml) for the complete pattern.
 

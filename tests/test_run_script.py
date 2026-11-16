@@ -1,5 +1,7 @@
 import json
 import os
+import shlex
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -37,6 +39,7 @@ class TestRunScript:
                     env={
                         **os.environ,
                         "ACTION_PATH": str(ACTION_PATH),
+                        "HOME": str(tmppath / "home"),
                         "PROMPT": "Reply with the single word OK.",
                         "PROMPT_VARS": "{}",
                         "FORMAT_OUTPUT": "false",
@@ -82,6 +85,7 @@ class TestRunScript:
                     env={
                         **os.environ,
                         "ACTION_PATH": str(ACTION_PATH),
+                        "HOME": str(tmppath / "home"),
                         "PROMPT": "Reply with the single word OK.",
                         "PROMPT_VARS": "{}",
                         "FORMAT_OUTPUT": "false",
@@ -210,6 +214,7 @@ class TestRunScript:
                 env={
                     **os.environ,
                     "ACTION_PATH": str(ACTION_PATH),
+                    "HOME": str(tmppath / "home"),
                     "PROMPT": "Reply with the single word OK.",
                     "PROMPT_VARS": "{}",
                     "FORMAT_OUTPUT": "false",
@@ -223,3 +228,315 @@ class TestRunScript:
                 state["error_summary"] == "LLM provider quota or credit check failed."
             )
             assert state["failed"] is True
+
+    @pytest.mark.parametrize(
+        "script",
+        [
+            "printf 'APIError: Your credit balance is too low.\\n' >&2\n",
+            "echo "
+            + shlex.quote(
+                json.dumps(
+                    {
+                        "type": "error",
+                        "error": {
+                            "name": "APIError",
+                            "data": {"message": "Your credit balance is too low."},
+                        },
+                    }
+                )
+            )
+            + "\n",
+        ],
+        ids=["stderr", "json_event"],
+    )
+    def test_formatted_provider_error_fails_run(self, script):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+
+            fake_opencode = fake_bin / "opencode"
+            fake_opencode.write_text("#!/bin/bash\n" + script)
+            fake_opencode.chmod(0o755)
+
+            result = subprocess.run(
+                ["bash", str(RUN_SCRIPT)],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=tmppath,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_PATH),
+                    "HOME": str(tmppath / "home"),
+                    "TMPDIR": str(tmppath),
+                    "PROMPT": "Reply with the single word OK.",
+                    "PROMPT_VARS": "{}",
+                    "FORMAT_OUTPUT": "true",
+                    "GITHUB_ACTIONS": "true",
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                },
+            )
+
+            assert result.returncode == 1
+            state = json.loads((tmppath / ".dobbyphus-state.json").read_text())
+            assert (
+                state["error_summary"] == "LLM provider quota or credit check failed."
+            )
+
+    @pytest.mark.parametrize("format_output", ["true", "false"])
+    def test_provider_error_detected_after_slow_log_writer(self, format_output):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+
+            fake_opencode = fake_bin / "opencode"
+            fake_opencode.write_text(
+                "#!/bin/bash\n"
+                "printf 'APIError: Your credit balance is too low.\\n' >&2\n"
+            )
+            fake_opencode.chmod(0o755)
+
+            real_tee = shutil.which("tee")
+            fake_tee = fake_bin / "tee"
+            fake_tee.write_text(f'#!/bin/bash\nsleep 1\nexec {real_tee} "$@"\n')
+            fake_tee.chmod(0o755)
+
+            result = subprocess.run(
+                ["bash", str(RUN_SCRIPT)],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=tmppath,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_PATH),
+                    "HOME": str(tmppath / "home"),
+                    "TMPDIR": str(tmppath),
+                    "PROMPT": "Reply with the single word OK.",
+                    "PROMPT_VARS": "{}",
+                    "FORMAT_OUTPUT": format_output,
+                    "GITHUB_ACTIONS": "true",
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                },
+            )
+
+            assert result.returncode == 1
+            assert "credit balance is too low" in result.stderr
+            state = json.loads((tmppath / ".dobbyphus-state.json").read_text())
+            assert (
+                state["error_summary"] == "LLM provider quota or credit check failed."
+            )
+
+    @pytest.mark.parametrize("format_output", ["true", "false"])
+    def test_exit_code_and_streams_preserved(self, format_output):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+
+            fake_opencode = fake_bin / "opencode"
+            fake_opencode.write_text(
+                "#!/bin/bash\necho run-stdout\necho run-stderr >&2\nexit 7\n"
+            )
+            fake_opencode.chmod(0o755)
+
+            result = subprocess.run(
+                ["bash", str(RUN_SCRIPT)],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=tmppath,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_PATH),
+                    "HOME": str(tmppath / "home"),
+                    "TMPDIR": str(tmppath),
+                    "PROMPT": "Reply with the single word OK.",
+                    "PROMPT_VARS": "{}",
+                    "FORMAT_OUTPUT": format_output,
+                    "GITHUB_ACTIONS": "true",
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                },
+            )
+
+            assert result.returncode == 7
+            assert "run-stdout" in result.stdout
+            assert "run-stdout" not in result.stderr
+            assert "run-stderr" in result.stderr
+            assert "run-stderr" not in result.stdout
+
+    @pytest.mark.parametrize(
+        "sisyphus",
+        [
+            {"model": "anthropic/claude-opus-4-7", "reasoning": "max"},
+            {
+                "models": [
+                    {"model": "anthropic/claude-opus-4-7", "reasoning": "max"},
+                    "openai/gpt-5.5",
+                ]
+            },
+        ],
+        ids=["model", "models"],
+    )
+    def test_omo5_prompt_append_updates_user_config(self, sisyphus):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+
+            fake_opencode = fake_bin / "opencode"
+            fake_opencode.write_text("#!/bin/bash\necho fake opencode\n")
+            fake_opencode.chmod(0o755)
+
+            home = tmppath / "home"
+            omo_file = home / ".omo" / "omo.jsonc"
+            omo_file.parent.mkdir(parents=True)
+            omo_file.write_text(
+                "// OMO configuration\n"
+                + json.dumps({"[opencode]": {"agents": {"sisyphus": sisyphus}}})
+            )
+
+            result = subprocess.run(
+                ["bash", str(RUN_SCRIPT)],
+                check=False,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_PATH),
+                    "HOME": str(home),
+                    "OH_MY_OPENCODE_VERSION": "v5.1.2",
+                    "PROMPT": "Reply with the single word OK.",
+                    "PROMPT_VARS": "{}",
+                    "FORMAT_OUTPUT": "false",
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                },
+            )
+
+            assert result.returncode == 0, result.stderr
+            written = json.loads(omo_file.read_text())["[opencode]"]["agents"][
+                "sisyphus"
+            ]
+
+        assert "## GitHub Actions Environment" in written.pop("prompt_append")
+        assert written == sisyphus
+        assert (
+            "Runtime config: agent=sisyphus provider=anthropic "
+            "model=claude-opus-4-7 variant=max"
+        ) in result.stdout
+
+    def test_prompt_append_carries_background_collection_override(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+
+            fake_opencode = fake_bin / "opencode"
+            fake_opencode.write_text(
+                "#!/bin/bash\nprintf 'fake opencode %s\\n' \"$*\"\n"
+            )
+            fake_opencode.chmod(0o755)
+
+            home = tmppath / "home"
+            omo_dir = home / ".config" / "opencode"
+            omo_dir.mkdir(parents=True)
+            omo_file = omo_dir / "oh-my-openagent.json"
+            omo_file.write_text("{}")
+
+            subprocess.run(
+                ["bash", str(RUN_SCRIPT)],
+                check=True,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_PATH),
+                    "HOME": str(home),
+                    "PROMPT": "Reply with the single word OK.",
+                    "PROMPT_VARS": "{}",
+                    "FORMAT_OUTPUT": "false",
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                },
+            )
+
+            append = json.loads(omo_file.read_text())["agents"]["sisyphus"][
+                "prompt_append"
+            ]
+
+        assert "background_output(task_id=..., block=true)" in append
+        assert "background_cancel" in append
+        assert "any tool, agent, or skill" in append
+
+    def test_preset_background_subagents_flag_is_preserved(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+
+            fake_opencode = fake_bin / "opencode"
+            fake_opencode.write_text(
+                "#!/bin/bash\n"
+                "printf 'fake opencode %s\\n' \"$*\"\n"
+                "printf 'BG_SUBAGENTS=%s\\n' \"${OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS:-unset}\"\n"
+            )
+            fake_opencode.chmod(0o755)
+
+            result = subprocess.run(
+                ["bash", str(RUN_SCRIPT)],
+                check=True,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "ACTION_PATH": str(ACTION_PATH),
+                    "HOME": str(tmppath / "home"),
+                    "PROMPT": "Reply with the single word OK.",
+                    "PROMPT_VARS": "{}",
+                    "FORMAT_OUTPUT": "false",
+                    "MODE": "review",
+                    "REVIEW_KEYWORDS": "",
+                    "OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS": "true",
+                    "PATH": f"{fake_bin}:{os.environ['PATH']}",
+                },
+            )
+
+            assert "BG_SUBAGENTS=true" in result.stdout
+
+    def test_review_mode_leaves_background_subagents_unset(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            fake_bin = tmppath / "bin"
+            fake_bin.mkdir()
+
+            fake_opencode = fake_bin / "opencode"
+            fake_opencode.write_text(
+                "#!/bin/bash\n"
+                "printf 'fake opencode %s\\n' \"$*\"\n"
+                "printf 'BG_SUBAGENTS=%s\\n' \"${OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS:-unset}\"\n"
+            )
+            fake_opencode.chmod(0o755)
+
+            env = {
+                **os.environ,
+                "ACTION_PATH": str(ACTION_PATH),
+                "HOME": str(tmppath / "home"),
+                "PROMPT": "Reply with the single word OK.",
+                "PROMPT_VARS": "{}",
+                "FORMAT_OUTPUT": "false",
+                "MODE": "review",
+                "REVIEW_KEYWORDS": "",
+                "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            }
+            env.pop("OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS", None)
+
+            result = subprocess.run(
+                ["bash", str(RUN_SCRIPT)],
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+
+            assert "BG_SUBAGENTS=unset" in result.stdout

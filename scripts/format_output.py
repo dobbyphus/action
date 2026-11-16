@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from typing import IO, TextIO
 
 TOOL_ICONS = {
@@ -141,9 +142,9 @@ def format_tool_output(tool_name: str, tool_input: dict, tool_output: str) -> st
 
 
 def handle_tool_use(part: dict, output: TextIO = sys.stdout) -> None:
-    tool_name = part.get("tool", part.get("name", "unknown"))
+    tool_name = part.get("tool", "unknown")
     state = part.get("state", {})
-    tool_input = state.get("input", part.get("input", {}))
+    tool_input = state.get("input", {})
     tool_output = state.get("output", "")
 
     icon = get_tool_icon(tool_name)
@@ -160,16 +161,12 @@ def handle_tool_use(part: dict, output: TextIO = sys.stdout) -> None:
     formatted_output = format_tool_output(tool_name, tool_input, tool_output)
     if formatted_output:
         print(formatted_output, file=output, flush=True)
-
-    print_group_end(output)
-
-
-def handle_tool_result(part: dict, output: TextIO = sys.stdout) -> None:
-    content = part.get("content", "")
-
-    if content:
-        print("---", file=output, flush=True)
-        print(truncate_content(content), file=output, flush=True)
+    if state.get("status") == "error":
+        print(
+            f"Error: {truncate_content(state.get('error', ''))}",
+            file=output,
+            flush=True,
+        )
 
     print_group_end(output)
 
@@ -180,7 +177,29 @@ def handle_text(part: dict, output: TextIO = sys.stdout) -> None:
         print(text, file=output, flush=True)
 
 
-SKIP_EVENT_TYPES = {"step_start", "step_finish"}
+def handle_step_finish(event: dict, output: TextIO = sys.stdout) -> None:
+    part = event.get("part", {})
+    tokens = part.get("tokens", {})
+    cache = tokens.get("cache", {})
+    timestamp = event.get("timestamp")
+    fields = {
+        "reason": part.get("reason"),
+        "session": event.get("sessionID"),
+        "time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(timestamp / 1000))
+        if timestamp
+        else None,
+        "input": tokens.get("input"),
+        "output": tokens.get("output"),
+        "reasoning": tokens.get("reasoning"),
+        "cache_read": cache.get("read"),
+        "cache_write": cache.get("write"),
+        "cost": part.get("cost"),
+    }
+    summary = " ".join(f"{k}={v}" for k, v in fields.items() if v is not None)
+    print(f"Step finished: {summary}", file=output, flush=True)
+
+
+SKIP_EVENT_TYPES = {"step_start"}
 
 
 def process_event(event: dict, output: TextIO = sys.stdout) -> None:
@@ -191,10 +210,12 @@ def process_event(event: dict, output: TextIO = sys.stdout) -> None:
         return
     elif event_type == "tool_use":
         handle_tool_use(part, output)
-    elif event_type == "tool_result":
-        handle_tool_result(part, output)
     elif event_type == "text":
         handle_text(part, output)
+    elif event_type == "step_finish":
+        handle_step_finish(event, output)
+    elif event_type == "error":
+        print(json.dumps(event), file=sys.stderr, flush=True)
     else:
         print(json.dumps(event), file=output, flush=True)
 
@@ -228,7 +249,6 @@ def run_opencode(prompt: str, output: TextIO = sys.stdout) -> int:
     process = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
     )

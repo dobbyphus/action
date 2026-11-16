@@ -5,6 +5,8 @@ import os
 import sys
 from pathlib import Path
 
+import omo_config
+
 
 def read_json_object(path: Path) -> dict:
     try:
@@ -265,12 +267,15 @@ def main():
         merged_config = merge_configs(merged_config, override_config)
     config_file.write_text(json.dumps(merged_config, indent=2))
 
+    omo5 = (omo_config.omo_major_version(omo_version) or 0) >= 5
     plugins = merged_config.get("plugin", [])
     plugin_packages = {
         entry.split("@", 1)[0] for entry in plugins if isinstance(entry, str)
     }
     omo_packages = plugin_packages & {"oh-my-openagent", "oh-my-opencode"}
-    if (
+    if omo5:
+        omo_file = omo_config.user_config_path()
+    elif (
         "oh-my-opencode" in plugin_packages and "oh-my-openagent" not in plugin_packages
     ) or (not omo_packages and not omo_file.exists() and legacy_omo_file.exists()):
         omo_file = legacy_omo_file
@@ -283,9 +288,16 @@ def main():
         enable_frontend_ui_ux,
     )
 
+    if omo5 and "frontend-ui-ux" in omo_defaults.get("disabled_skills", []):
+        omo_defaults["disabled_skills"].append("frontend")
+
     try:
-        omo_base = read_json_object(omo_file) if omo_file.exists() else {}
-    except (TypeError, ValueError) as exc:
+        if omo5:
+            omo_document = omo_config.read_jsonc(omo_file)
+            omo_base = omo_document.get(omo_config.OPENCODE_BLOCK, {})
+        else:
+            omo_base = read_json_object(omo_file) if omo_file.exists() else {}
+    except (OSError, TypeError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
@@ -297,9 +309,16 @@ def main():
         except (TypeError, ValueError) as exc:
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
+        if omo5:
+            merged_omo = omo_config.drop_replaced_models(merged_omo, omo_override)
         merged_omo = merge_configs(merged_omo, omo_override)
 
-    omo_file.write_text(json.dumps(merged_omo, indent=2))
+    if omo5:
+        omo_config.write_config(
+            omo_file, {**omo_document, omo_config.OPENCODE_BLOCK: merged_omo}
+        )
+    else:
+        omo_file.write_text(json.dumps(merged_omo, indent=2))
 
     print(f"Generated auth: {auth_file}")
     print(f"Generated opencode config: {config_file}")

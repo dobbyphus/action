@@ -20,7 +20,6 @@ format_tool_output = format_output.format_tool_output
 format_todos = format_output.format_todos
 get_tool_icon = format_output.get_tool_icon
 handle_text = format_output.handle_text
-handle_tool_result = format_output.handle_tool_result
 handle_tool_use = format_output.handle_tool_use
 print_group_end = format_output.print_group_end
 print_group_start = format_output.print_group_start
@@ -239,6 +238,7 @@ class TestHandleToolUse:
         part = {
             "tool": "read",
             "state": {
+                "status": "completed",
                 "input": {"filePath": "/test/file.py"},
                 "output": "file contents here",
             },
@@ -247,6 +247,7 @@ class TestHandleToolUse:
         result = output.getvalue()
         assert "::group::📄 Read: /test/file.py" in result
         assert "file contents here" not in result
+        assert "Error:" not in result
         assert "::endgroup::" in result
 
     def test_tool_without_output(self):
@@ -255,6 +256,22 @@ class TestHandleToolUse:
         handle_tool_use(part, output)
         result = output.getvalue()
         assert "::group::📋 Todoread" in result
+        assert "::endgroup::" in result
+
+    def test_tool_error_shown(self):
+        output = io.StringIO()
+        part = {
+            "tool": "read",
+            "state": {
+                "status": "error",
+                "input": {"filePath": "/missing.py"},
+                "error": "File not found: /missing.py",
+            },
+        }
+        handle_tool_use(part, output)
+        result = output.getvalue()
+        assert "::group::📄 Read: /missing.py" in result
+        assert "Error: File not found: /missing.py" in result
         assert "::endgroup::" in result
 
     def test_unknown_tool(self):
@@ -267,32 +284,6 @@ class TestHandleToolUse:
         result = output.getvalue()
         assert "🔧" in result
         assert "Custom Tool" in result
-
-    def test_legacy_format_fallback(self):
-        output = io.StringIO()
-        part = {"name": "read", "input": {"filePath": "/test/file.py"}}
-        handle_tool_use(part, output)
-        result = output.getvalue()
-        assert "::group::📄 Read: /test/file.py" in result
-
-
-class TestHandleToolResult:
-    def test_result_with_content(self):
-        output = io.StringIO()
-        part = {"content": "File contents here"}
-        handle_tool_result(part, output)
-        result = output.getvalue()
-        assert "---" in result
-        assert "File contents here" in result
-        assert "::endgroup::" in result
-
-    def test_result_empty_content(self):
-        output = io.StringIO()
-        part = {"content": ""}
-        handle_tool_result(part, output)
-        result = output.getvalue()
-        assert "---" not in result
-        assert "::endgroup::" in result
 
 
 class TestHandleText:
@@ -320,16 +311,13 @@ class TestProcessEvent:
         output = io.StringIO()
         event = {
             "type": "tool_use",
-            "part": {"name": "bash", "input": {"command": "echo hello"}},
+            "part": {
+                "tool": "bash",
+                "state": {"status": "completed", "input": {"command": "echo hello"}},
+            },
         }
         process_event(event, output)
         assert "::group::" in output.getvalue()
-
-    def test_tool_result_event(self):
-        output = io.StringIO()
-        event = {"type": "tool_result", "part": {"content": "hello"}}
-        process_event(event, output)
-        assert "::endgroup::" in output.getvalue()
 
     def test_text_event(self):
         output = io.StringIO()
@@ -351,18 +339,43 @@ class TestProcessEvent:
         process_event(event, output)
         assert output.getvalue() == ""
 
-    def test_step_finish_skipped(self):
+    def test_step_finish_summary(self):
         output = io.StringIO()
-        event = {"type": "step_finish", "part": {"id": "123"}}
+        event = {
+            "type": "step_finish",
+            "timestamp": 1790000000000,
+            "sessionID": "ses_1",
+            "part": {
+                "reason": "length",
+                "cost": 0.5,
+                "tokens": {
+                    "input": 10,
+                    "output": 20,
+                    "reasoning": 30,
+                    "cache": {"read": 40, "write": 50},
+                },
+            },
+        }
+        process_event(event, output)
+        assert output.getvalue() == (
+            "Step finished: reason=length session=ses_1 "
+            "time=2026-09-21T14:13:20Z input=10 output=20 reasoning=30 "
+            "cache_read=40 cache_write=50 cost=0.5\n"
+        )
+
+    def test_error_event_goes_to_stderr(self, capsys):
+        output = io.StringIO()
+        event = {"type": "error", "error": {"name": "APIError"}}
         process_event(event, output)
         assert output.getvalue() == ""
+        assert "APIError" in capsys.readouterr().err
 
 
 class TestProcessStream:
     def test_multiple_events(self):
         stream = io.StringIO(
-            '{"type":"tool_use","part":{"name":"read","input":{"filePath":"test.py"}}}\n'
-            '{"type":"tool_result","part":{"content":"file content"}}\n'
+            '{"type":"tool_use","part":{"tool":"read",'
+            '"state":{"status":"completed","input":{"filePath":"test.py"}}}}\n'
             '{"type":"text","part":{"text":"Done"}}\n'
         )
         output = io.StringIO()

@@ -24,10 +24,11 @@ These files contain project conventions, coding standards, and AI-specific guida
 - Precedence: system > developer > this prompt > repo guidelines > user instructions.
 - EVERY response = GitHub comment (use heredoc for proper escaping)
 - The user CANNOT see console output; all status/progress/final answers must be commented
-- This workflow runs in one-shot, non-interactive `opencode run` mode.
-- NEVER end a response while background tasks are still pending; there is no automatic follow-up turn after a plain-text response.
-- Do not say you are "waiting for background tasks" or "ending your response for a system reminder" in GitHub Actions.
-- Prefer direct tools or synchronous work over background agents here. Only launch background tasks if you can collect their results before finishing the run.
+- This workflow runs in one-shot, non-interactive `opencode run` mode. Do not rely on a later notification: once your response ends this run exits, and no follow-up turn is guaranteed.
+- NEVER end a response while background tasks are still pending. Background agents are fine — do other useful work while they run — but collect every result before finishing.
+- OVERRIDE: any tool, agent, or skill instruction to end your turn and wait for a `<system-reminder>` before collecting does NOT apply here. Collect in-turn with `background_output(task_id=..., block=true)`.
+- A blocking collect can return while the task is still pending or running, or time out. That is not a result: collect again if the job has time left, otherwise `background_cancel` that task and finish its work yourself.
+- When unsure, prefer synchronous delegation (`run_in_background=false`) or direct tools. Never say you are "waiting for background tasks" or ending your response for a system reminder.
 - NEVER run `git push` - the workflow handles pushing with signed commits
 - NEVER run `gh pr create` - the workflow handles PR creation
 - NEVER reference commit SHAs - they change when replayed as signed commits
