@@ -5,5 +5,7 @@
     ':disableRateLimiting',
     ':semanticCommits',
   ],
-  dependencyDashboard: true,
+  dependencyDashboard: {
+    enabled: true,
+  },
 }
