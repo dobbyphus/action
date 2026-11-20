@@ -111,6 +111,7 @@ See [`examples/agent.yaml`](./examples/agent.yaml) for a complete workflow with 
 | `format_output` | `true` | Format output with collapsible sections for GitHub Actions logs |
 | `opencode_print_logs` | `false` | Include raw opencode runtime logs (`--print-logs`) in agent runs. GitHub debug reruns also enable this automatically. |
 | `force_review` | `false` | Review even when `bot_login` already approved or requested changes on the current PR head |
+| `verify_review` | `true` | Fail review runs that post no new review from `bot_login`. Set to `false` when the calling workflow posts the review itself. |
 
 ## How It Works
 
