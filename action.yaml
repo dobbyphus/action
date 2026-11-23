@@ -182,6 +182,12 @@ inputs:
       the current PR head
     required: false
     default: "false"
+  verify_review:
+    description: >-
+      Verify that review mode posted a new review from bot_login; set to
+      false when the calling workflow posts the review itself
+    required: false
+    default: "true"
 
 outputs:
   review_skipped:
@@ -683,6 +689,7 @@ runs:
         steps.review_baseline.outputs.skip != 'true' &&
         steps.agent.outputs.exit_code == '0' &&
         steps.mode.outputs.value == 'review' &&
+        inputs.verify_review != 'false' &&
         (steps.context.outputs.context_type == 'pr_comment' ||
          steps.context.outputs.context_type == 'pr_opened' ||
          steps.context.outputs.context_type == 'pr_review_request')
